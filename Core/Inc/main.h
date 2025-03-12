@@ -93,8 +93,8 @@ void Error_Handler(void);
 #define WPR_Signal_GPIO_Port GPIOA
 #define WPL_Signal_Pin GPIO_PIN_9
 #define WPL_Signal_GPIO_Port GPIOA
-#define V12_NP_SignalA10_Pin GPIO_PIN_10
-#define V12_NP_SignalA10_GPIO_Port GPIOA
+#define Reset_Pin GPIO_PIN_10
+#define Reset_GPIO_Port GPIOA
 #define F2R_Signal_Pin GPIO_PIN_15
 #define F2R_Signal_GPIO_Port GPIOA
 #define F1R_Signal_Pin GPIO_PIN_3
