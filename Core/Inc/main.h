@@ -49,6 +49,8 @@ extern "C" {
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -59,10 +61,6 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define Ecu_Signal_Pin GPIO_PIN_13
 #define Ecu_Signal_GPIO_Port GPIOC
-#define LED1_Pin GPIO_PIN_14
-#define LED1_GPIO_Port GPIOC
-#define LED2_Pin GPIO_PIN_15
-#define LED2_GPIO_Port GPIOC
 #define Altrnator_Sens_Pin GPIO_PIN_0
 #define Altrnator_Sens_GPIO_Port GPIOA
 #define WPL_Sens_Pin GPIO_PIN_1
@@ -99,10 +97,18 @@ void Error_Handler(void);
 #define F2R_Signal_GPIO_Port GPIOA
 #define F1R_Signal_Pin GPIO_PIN_3
 #define F1R_Signal_GPIO_Port GPIOB
+#define F1R_pwm_Pin GPIO_PIN_4
+#define F1R_pwm_GPIO_Port GPIOB
+#define F2R_pwm_Pin GPIO_PIN_5
+#define F2R_pwm_GPIO_Port GPIOB
 #define F2L_Signal_Pin GPIO_PIN_6
 #define F2L_Signal_GPIO_Port GPIOB
 #define F1L_Signal_Pin GPIO_PIN_7
 #define F1L_Signal_GPIO_Port GPIOB
+#define WPL_pwm_Pin GPIO_PIN_8
+#define WPL_pwm_GPIO_Port GPIOB
+#define WPR_pwm_Pin GPIO_PIN_9
+#define WPR_pwm_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
