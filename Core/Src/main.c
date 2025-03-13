@@ -42,11 +42,8 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
-
 CAN_HandleTypeDef hcan;
-
 SPI_HandleTypeDef hspi2;
-
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
@@ -68,6 +65,50 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+
+
+CAN_RxHeaderTypeDef RxHeader;
+
+
+
+
+uint32_t adc_buff[9];
+
+uint16_t ect;
+uint16_t oilTemp;
+uint16_t oilPress;
+uint16_t fuelPress;
+uint16_t battVolt;
+uint16_t rpm;
+uint16_t instFuelConsumption;
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK) {
+
+		Error_Handler();
+	}
+
+	if (RxHeader.StdId == 0x3A1) {
+			ectFlag = 1;
+			ect = (RxData[3] << 8) | RxData[2];
+			ect = ect - 50;
+			oilTemp = (RxData[5] << 8) | RxData[4];
+			oilTemp = oilTemp - 50;
+	}
+	if (RxHeader.StdId == 0x3A2){
+				fuelPress = (RxData[1] << 8) | RxData[0];
+
+	}
+	if (RxHeader.StdId == 0x3A3){
+			instFuelConsumption = (RxData[3] << 8) | RxData[2];
+	}
+	if (RxHeader.StdId == 0x3A4){
+			rpm = (RxData[6] << 8) | RxData[5];
+	}
+	if (RxHeader.StdId == 0x3A5){
+		battVolt = (RxData[1] << 8) | RxData[0];
+	}
+}
 /* USER CODE END 0 */
 
 /**
