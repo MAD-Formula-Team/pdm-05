@@ -42,9 +42,16 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
+
 CAN_HandleTypeDef hcan;
+
 SPI_HandleTypeDef hspi2;
+
+TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim16;
+TIM_HandleTypeDef htim17;
 
 /* USER CODE BEGIN PV */
 
@@ -58,6 +65,10 @@ static void MX_ADC_Init(void);
 static void MX_CAN_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_TIM17_Init(void);
+static void MX_TIM16_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -73,7 +84,14 @@ CAN_RxHeaderTypeDef RxHeader;
 
 
 uint32_t adc_buff[9];
+uint8_t RxData[8];
+uint16_t value_adc[9];
 
+uint8_t tempDataFlag;
+uint8_t pressDataFlag;
+uint8_t fuelData;
+uint8_t rpmDataFlag;
+uint8_t battDataFlag;
 uint16_t ect;
 uint16_t oilTemp;
 uint16_t oilPress;
@@ -81,6 +99,24 @@ uint16_t fuelPress;
 uint16_t battVolt;
 uint16_t rpm;
 uint16_t instFuelConsumption;
+uint16_t ectTh[4] = {90, 100, 110, 120};
+uint16_t oilTh[3] = {80, 100, 120};
+uint16_t dutyFanEctTh[3] = {70, 70, 70};
+uint16_t dutyFanNill = 40;
+uint16_t dutyPumpEctTh[3] = {70, 70, 70};
+uint16_t dutyPumpNill = 120;
+uint16_t dutyFanOilTh[3] = {70,70,70};
+uint16_t dutyPumpOilTh[3] = {70,70,70};
+uint8_t ectEmergencyFlag;
+uint8_t oilEmergencyFlag;
+
+
+
+
+
+
+
+
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK) {
@@ -89,24 +125,57 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	}
 
 	if (RxHeader.StdId == 0x3A1) {
-			ectFlag = 1;
+			tempDataFlag = 1;
 			ect = (RxData[3] << 8) | RxData[2];
 			ect = ect - 50;
 			oilTemp = (RxData[5] << 8) | RxData[4];
 			oilTemp = oilTemp - 50;
 	}
 	if (RxHeader.StdId == 0x3A2){
-				fuelPress = (RxData[1] << 8) | RxData[0];
+			pressDataFlag = 1;
+			fuelPress = (RxData[1] << 8) | RxData[0];
+			oilPress = (RxData[3] << 8) | RxData[2];
 
 	}
 	if (RxHeader.StdId == 0x3A3){
+			fueDataFlag = 1;
 			instFuelConsumption = (RxData[3] << 8) | RxData[2];
 	}
 	if (RxHeader.StdId == 0x3A4){
+			rpmDataFlag = 1;
 			rpm = (RxData[6] << 8) | RxData[5];
 	}
 	if (RxHeader.StdId == 0x3A5){
-		battVolt = (RxData[1] << 8) | RxData[0];
+			battDataFlag = 1;
+			battVolt = (RxData[1] << 8) | RxData[0];
+	}
+}
+
+void tempActions(){
+	tempFlagData = 0;
+	if(ect > ectTh[0]){
+		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
+		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
+		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
+		TIM2->CCR3 = dutyFanEctTh[0];
+		TIM2->CCR4 = dutyFanEctTh[0];
+		TIM16->CCR1 = dutyPumpEctTh[0];
+
+		if(ect > ectTh[1]){
+			TIM2->CCR3 = dutyFanEctTh[1];
+			TIM2->CCR4 = dutyFanEctTh[1];
+			TIM16->CCR1 = dutyPumpEctTh[1];
+
+			if(ect > ectTh[2]){
+				TIM2->CCR3 = dutyFanEctTh[2];
+				TIM2->CCR4 = dutyFanEctTh[2];
+				TIM16->CCR1 = dutyPumpEctTh[2];
+
+				if(ect > ectTh[3]){
+					ectEmergencyFlag = 1;
+				})
+			}
+		}
 	}
 }
 /* USER CODE END 0 */
@@ -145,7 +214,86 @@ int main(void)
   MX_CAN_Init();
   MX_SPI2_Init();
   MX_TIM3_Init();
+  MX_TIM17_Init();
+  MX_TIM16_Init();
+  MX_TIM2_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  HAL_ADC_Start_DMA(&hadc, adc_buff, 9); //Inicia el DMA se le pasa el ADC, la variable donde guardar los datos y el numero de canales
+  HAL_ADC_Start_IT(&hadc); //Se inicia la interrupcion de fin de conversion del ADC en el "Set-up"
+  HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
+  HAL_TIM_Base_Start_IT(&htim1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+  HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim17, TIM_CHANNEL_1);
+
+
+	TxHeader_adc.DLC = 8;
+	TxHeader_adc.ExtId = 0;
+	TxHeader_adc.IDE = CAN_ID_STD;
+	TxHeader_adc.RTR = CAN_RTR_DATA;
+	TxHeader_adc.StdId = ADC_ID;
+	TxHeader_adc.TransmitGlobalTime = DISABLE;
+
+	TxHeader_adc1.DLC = 4;
+	TxHeader_adc1.ExtId = 0;
+	TxHeader_adc1.IDE = CAN_ID_STD;
+	TxHeader_adc1.RTR = CAN_RTR_DATA;
+	TxHeader_adc1.StdId = ADC_ID1;
+	TxHeader_adc1.TransmitGlobalTime = DISABLE;
+
+	TxHeader_adc2.DLC = 4;
+	TxHeader_adc2.ExtId = 0;
+	TxHeader_adc2.IDE = CAN_ID_STD;
+	TxHeader_adc2.RTR = CAN_RTR_DATA;
+	TxHeader_adc2.StdId = ADC_ID2;
+	TxHeader_adc2.TransmitGlobalTime = DISABLE;
+
+	TxHeader_adc3.DLC = 2; //AQUI ESTABA EL ERROR; ESO ESTABA COMO TxHeader_adc2
+	TxHeader_adc3.ExtId = 0;
+	TxHeader_adc3.IDE = CAN_ID_STD;
+	TxHeader_adc3.RTR = CAN_RTR_DATA;
+	TxHeader_adc3.StdId = ADC_ID3;
+	TxHeader_adc3.TransmitGlobalTime = DISABLE;
+
+	TxHeader_anw.DLC = 2;
+	TxHeader_anw.ExtId = 0;
+	TxHeader_anw.IDE = CAN_ID_STD;
+	TxHeader_anw.RTR = CAN_RTR_DATA;
+	TxHeader_anw.StdId = ANW_ID;
+	TxHeader_anw.TransmitGlobalTime = DISABLE;
+
+	TxHeader_heartbeat.DLC = 1;
+	TxHeader_heartbeat.ExtId = 0;
+	TxHeader_heartbeat.IDE = CAN_ID_STD;
+	TxHeader_heartbeat.RTR = CAN_RTR_DATA;
+	TxHeader_heartbeat.StdId = HEARTBEAT_ID;
+	TxHeader_heartbeat.TransmitGlobalTime = DISABLE;
+
+	if (HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING)
+			!= HAL_OK) {
+		Error_Handler();
+
+
+
+void mapeoADC(){
+	adc_1 = ((value_adc[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.132); //
+	adc_2 = ((value_adc[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc_3 = ((value_adc[2] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc_4 = ((value_adc[3] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc_5 = ((value_adc[4] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc_6 = ((value_adc[5] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc_7 = ((value_adc[6] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc_8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Alternator Esto debería de ser (value_adc[7] *(3.3/4095)-0.33) *(1000/0.264)
+	adc_9 = (((value_adc[8] * (3.3 / 4095) - 0.5)) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
+}
+
+
+
+
 
   /* USER CODE END 2 */
 
@@ -153,6 +301,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  HAL_GPIO_WritePin(GPIOA, WPR_Signal_Pin, SET);
+
+
+
+	  if(tempDataFlag){
+		  tempActions;
+	  }
 
 
 
@@ -407,6 +562,123 @@ static void MX_SPI2_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 48000;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_OC_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 9504;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 100;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
   * @brief TIM3 Initialization Function
   * @param None
   * @retval None
@@ -425,9 +697,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 960-1;
+  htim3.Init.Prescaler = 9504;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 1000-1;
+  htim3.Init.Period = 100;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
@@ -456,6 +728,130 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 2 */
   HAL_TIM_MspPostInit(&htim3);
+
+}
+
+/**
+  * @brief TIM16 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM16_Init(void)
+{
+
+  /* USER CODE BEGIN TIM16_Init 0 */
+
+  /* USER CODE END TIM16_Init 0 */
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM16_Init 1 */
+
+  /* USER CODE END TIM16_Init 1 */
+  htim16.Instance = TIM16;
+  htim16.Init.Prescaler = 3170;
+  htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim16.Init.Period = 100;
+  htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim16.Init.RepetitionCounter = 0;
+  htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim16) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim16) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim16, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim16, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM16_Init 2 */
+
+  /* USER CODE END TIM16_Init 2 */
+  HAL_TIM_MspPostInit(&htim16);
+
+}
+
+/**
+  * @brief TIM17 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM17_Init(void)
+{
+
+  /* USER CODE BEGIN TIM17_Init 0 */
+
+  /* USER CODE END TIM17_Init 0 */
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM17_Init 1 */
+
+  /* USER CODE END TIM17_Init 1 */
+  htim17.Instance = TIM17;
+  htim17.Init.Prescaler = 3170;
+  htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim17.Init.Period = 160;
+  htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim17.Init.RepetitionCounter = 0;
+  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim17, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim17, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM17_Init 2 */
+
+  /* USER CODE END TIM17_Init 2 */
+  HAL_TIM_MspPostInit(&htim17);
 
 }
 
@@ -515,36 +911,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : F1L_pwm_Pin F2L_pwm_Pin */
-  GPIO_InitStruct.Pin = F1L_pwm_Pin|F2L_pwm_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF2_TIM2;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
   /*Configure GPIO pins : WPR_Signal_Pin WPL_Signal_Pin Reset_Pin F2R_Signal_Pin */
   GPIO_InitStruct.Pin = WPR_Signal_Pin|WPL_Signal_Pin|Reset_Pin|F2R_Signal_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : WPL_pwm_Pin */
-  GPIO_InitStruct.Pin = WPL_pwm_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF2_TIM16;
-  HAL_GPIO_Init(WPL_pwm_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : WPR_pwm_Pin */
-  GPIO_InitStruct.Pin = WPR_pwm_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF2_TIM17;
-  HAL_GPIO_Init(WPR_pwm_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   /* USER CODE END MX_GPIO_Init_2 */
