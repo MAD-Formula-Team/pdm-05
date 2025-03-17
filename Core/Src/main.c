@@ -31,7 +31,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define HEARTBEAT_ID 0x3B0
+#define ADC_ID 0x3B1
+#define ADC_ID1 0x3B2
+#define ADC_ID2 0x3B3
+#define ADC_ID3 0x3B4
+#define ANW_ID 0x2B1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -79,17 +84,27 @@ static void MX_TIM1_Init(void);
 
 
 CAN_RxHeaderTypeDef RxHeader;
-
-
-
+CAN_TxHeaderTypeDef TxHeader_adc;
+CAN_TxHeaderTypeDef TxHeader_adc1;
+CAN_TxHeaderTypeDef TxHeader_adc2;
+CAN_TxHeaderTypeDef TxHeader_adc3;
+CAN_TxHeaderTypeDef TxHeader_anw;
+CAN_TxHeaderTypeDef TxHeader_heartbeat;
+uint32_t TxMailBox;
+uint8_t TxData_adc[8];
+uint8_t TxData_adc1[4];
+uint8_t TxData_adc2[4];
+uint8_t TxData_adc3[2];
+uint8_t TxData_anw[2];
+uint8_t TxData_heartbeat[1];
 
 uint32_t adc_buff[9];
 uint8_t RxData[8];
 uint16_t value_adc[9];
-
+int16_t adc1, adc2, adc3, adc4, adc5, adc6, adc7, adc8, adc9;
 uint8_t tempDataFlag;
 uint8_t pressDataFlag;
-uint8_t fuelData;
+uint8_t fuelDataFlag;
 uint8_t rpmDataFlag;
 uint8_t battDataFlag;
 uint16_t ect;
@@ -100,15 +115,16 @@ uint16_t battVolt;
 uint16_t rpm;
 uint16_t instFuelConsumption;
 uint16_t ectTh[4] = {90, 100, 110, 120};
-uint16_t oilTh[3] = {80, 100, 120};
+uint16_t oilTh[4] = {80, 100, 120, 130};
 uint16_t dutyFanEctTh[3] = {70, 70, 70};
 uint16_t dutyFanNill = 40;
 uint16_t dutyPumpEctTh[3] = {70, 70, 70};
-uint16_t dutyPumpNill = 120;
+uint16_t dutyPumpNill = 80;
 uint16_t dutyFanOilTh[3] = {70,70,70};
 uint16_t dutyPumpOilTh[3] = {70,70,70};
 uint8_t ectEmergencyFlag;
 uint8_t oilEmergencyFlag;
+uint8_t send = 0;
 
 
 
@@ -138,7 +154,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 	}
 	if (RxHeader.StdId == 0x3A3){
-			fueDataFlag = 1;
+			fuelDataFlag = 1;
 			instFuelConsumption = (RxData[3] << 8) | RxData[2];
 	}
 	if (RxHeader.StdId == 0x3A4){
@@ -152,7 +168,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 }
 
 void tempActions(){
-	tempFlagData = 0;
+	tempDataFlag = 0;
 	if(ect > ectTh[0]){
 		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
 		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
@@ -173,9 +189,47 @@ void tempActions(){
 
 				if(ect > ectTh[3]){
 					ectEmergencyFlag = 1;
-				})
+				}
 			}
 		}
+	}else{
+		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, RESET);
+		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, RESET);
+		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, RESET);
+		TIM2->CCR3 = dutyFanNill;
+		TIM2->CCR4 = dutyFanNill;
+		TIM16->CCR1 = dutyPumpNill;
+	}
+	if(oilTemp > oilTh[0]){
+		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
+		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
+		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
+		TIM3->CCR1 = dutyFanEctTh[0];
+		TIM3->CCR2 = dutyFanEctTh[0];
+		TIM17->CCR1 = dutyPumpOilTh[0];
+
+		if(oilTemp > oilTh[1]){
+			TIM3->CCR1 = dutyFanEctTh[1];
+			TIM3->CCR2 = dutyFanEctTh[1];
+			TIM17->CCR1 = dutyPumpOilTh[1];
+
+			if(oilTemp > oilTh[2]){
+				TIM3->CCR1 = dutyFanEctTh[2];
+				TIM3->CCR2 = dutyFanEctTh[2];
+				TIM17->CCR1 = dutyPumpOilTh[2];
+
+				if(oilTemp > oilTh[3]){
+					oilEmergencyFlag = 1;
+				}
+			}
+		}
+	}else{
+		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
+		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
+		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
+		TIM3->CCR1 = dutyFanNill;
+		TIM3->CCR2 = dutyFanNill;
+		TIM17->CCR1 = dutyPumpNill;
 	}
 }
 /* USER CODE END 0 */
@@ -223,6 +277,12 @@ int main(void)
   HAL_ADC_Start_IT(&hadc); //Se inicia la interrupcion de fin de conversion del ADC en el "Set-up"
   HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
   HAL_TIM_Base_Start_IT(&htim1);
+  TIM2->CCR3 = dutyFanNill;
+  TIM2->CCR4 = dutyFanNill;
+  TIM3->CCR1 = dutyFanNill;
+  TIM3->CCR2 = dutyFanNill;
+  TIM16->CCR1 = dutyPumpNill;
+  TIM17->CCR1 = dutyPumpNill;
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
@@ -277,18 +337,18 @@ int main(void)
 			!= HAL_OK) {
 		Error_Handler();
 
-
+	}
 
 void mapeoADC(){
-	adc_1 = ((value_adc[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.132); //
-	adc_2 = ((value_adc[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc_3 = ((value_adc[2] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc_4 = ((value_adc[3] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc_5 = ((value_adc[4] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc_6 = ((value_adc[5] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc_7 = ((value_adc[6] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc_8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Alternator Esto debería de ser (value_adc[7] *(3.3/4095)-0.33) *(1000/0.264)
-	adc_9 = (((value_adc[8] * (3.3 / 4095) - 0.5)) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
+	adc1 = ((value_adc[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.132); //
+	adc2 = ((value_adc[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc3 = ((value_adc[2] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc4 = ((value_adc[3] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc5 = ((value_adc[4] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc6 = ((value_adc[5] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc7 = ((value_adc[6] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Alternator Esto debería de ser (value_adc[7] *(3.3/4095)-0.33) *(1000/0.264)
+	adc9 = (((value_adc[8] * (3.3 / 4095) - 0.5)) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
 }
 
 
@@ -302,11 +362,11 @@ void mapeoADC(){
   while (1)
   {
 	  HAL_GPIO_WritePin(GPIOA, WPR_Signal_Pin, SET);
-
+	  mapeoADC();
 
 
 	  if(tempDataFlag){
-		  tempActions;
+		  tempActions();
 	  }
 
 
@@ -581,7 +641,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
+  htim1.Init.Prescaler = 999;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 48000;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -814,7 +874,7 @@ static void MX_TIM17_Init(void)
   htim17.Instance = TIM17;
   htim17.Init.Prescaler = 3170;
   htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim17.Init.Period = 160;
+  htim17.Init.Period = 100;
   htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim17.Init.RepetitionCounter = 0;
   htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -924,7 +984,13 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-
+	if (htim->Instance == TIM1) {
+		if(send){
+			send = 0;
+		}else{
+			send =1;
+		}
+	}
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
