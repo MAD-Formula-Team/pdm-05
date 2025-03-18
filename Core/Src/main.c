@@ -481,7 +481,7 @@ int main(void)
 	  if(send){
 		  sendCan();
 	  }
-	  if(heartbeatFlag >= 5 ){
+	  if(heartbeatFlag > 5 ){
 		  heartbeat();
 	  }
 	  if(battDataFlag){

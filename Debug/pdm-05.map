@@ -4141,7 +4141,7 @@ LOAD C:/ST/STM32CubeIDE_1.13.2/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
 .rel.dyn        0x080068e0        0x0
  .rel.iplt      0x080068e0        0x0 C:/ST/STM32CubeIDE_1.13.2/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344/tools/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v6-m/nofp/crtbegin.o
 
-.data           0x20000000       0x44 load address 0x080068e0
+.data           0x20000000       0x58 load address 0x080068e0
                 0x20000000                        . = ALIGN (0x4)
                 0x20000000                        _sdata = .
  *(.data)
@@ -4173,160 +4173,160 @@ LOAD C:/ST/STM32CubeIDE_1.13.2/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
                 0x20000030        0x6 ./Core/Src/main.o
                 0x20000030                dutyPumpOilTh
  *fill*         0x20000036        0x2 
+ .data.battVoltBuffer
+                0x20000038       0x14 ./Core/Src/main.o
+                0x20000038                battVoltBuffer
  .data.SystemCoreClock
-                0x20000038        0x4 ./Core/Src/system_stm32f0xx.o
-                0x20000038                SystemCoreClock
+                0x2000004c        0x4 ./Core/Src/system_stm32f0xx.o
+                0x2000004c                SystemCoreClock
  .data.uwTickPrio
-                0x2000003c        0x4 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal.o
-                0x2000003c                uwTickPrio
+                0x20000050        0x4 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal.o
+                0x20000050                uwTickPrio
  .data.uwTickFreq
-                0x20000040        0x1 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal.o
-                0x20000040                uwTickFreq
+                0x20000054        0x1 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal.o
+                0x20000054                uwTickFreq
  *(.RamFunc)
  *(.RamFunc*)
-                0x20000044                        . = ALIGN (0x4)
- *fill*         0x20000041        0x3 
-                0x20000044                        _edata = .
+                0x20000058                        . = ALIGN (0x4)
+ *fill*         0x20000055        0x3 
+                0x20000058                        _edata = .
 
-.igot.plt       0x20000044        0x0 load address 0x08006924
- .igot.plt      0x20000044        0x0 C:/ST/STM32CubeIDE_1.13.2/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344/tools/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v6-m/nofp/crtbegin.o
-                0x20000044                        . = ALIGN (0x4)
+.igot.plt       0x20000058        0x0 load address 0x08006938
+ .igot.plt      0x20000058        0x0 C:/ST/STM32CubeIDE_1.13.2/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344/tools/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v6-m/nofp/crtbegin.o
+                0x20000058                        . = ALIGN (0x4)
 
-.bss            0x20000044      0x3e0 load address 0x08006924
-                0x20000044                        _sbss = .
-                0x20000044                        __bss_start__ = _sbss
+.bss            0x20000058      0x3cc load address 0x08006938
+                0x20000058                        _sbss = .
+                0x20000058                        __bss_start__ = _sbss
  *(.bss)
- .bss           0x20000044       0x1c C:/ST/STM32CubeIDE_1.13.2/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344/tools/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v6-m/nofp/crtbegin.o
+ .bss           0x20000058       0x1c C:/ST/STM32CubeIDE_1.13.2/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344/tools/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v6-m/nofp/crtbegin.o
  *(.bss*)
- .bss.hadc      0x20000060       0x40 ./Core/Src/main.o
-                0x20000060                hadc
- .bss.hdma_adc  0x200000a0       0x44 ./Core/Src/main.o
-                0x200000a0                hdma_adc
- .bss.hcan      0x200000e4       0x28 ./Core/Src/main.o
-                0x200000e4                hcan
- .bss.hspi2     0x2000010c       0x64 ./Core/Src/main.o
-                0x2000010c                hspi2
- .bss.htim1     0x20000170       0x48 ./Core/Src/main.o
-                0x20000170                htim1
- .bss.htim2     0x200001b8       0x48 ./Core/Src/main.o
-                0x200001b8                htim2
- .bss.htim3     0x20000200       0x48 ./Core/Src/main.o
-                0x20000200                htim3
- .bss.htim16    0x20000248       0x48 ./Core/Src/main.o
-                0x20000248                htim16
- .bss.htim17    0x20000290       0x48 ./Core/Src/main.o
-                0x20000290                htim17
- .bss.RxHeader  0x200002d8       0x1c ./Core/Src/main.o
-                0x200002d8                RxHeader
+ .bss.hadc      0x20000074       0x40 ./Core/Src/main.o
+                0x20000074                hadc
+ .bss.hdma_adc  0x200000b4       0x44 ./Core/Src/main.o
+                0x200000b4                hdma_adc
+ .bss.hcan      0x200000f8       0x28 ./Core/Src/main.o
+                0x200000f8                hcan
+ .bss.hspi2     0x20000120       0x64 ./Core/Src/main.o
+                0x20000120                hspi2
+ .bss.htim1     0x20000184       0x48 ./Core/Src/main.o
+                0x20000184                htim1
+ .bss.htim2     0x200001cc       0x48 ./Core/Src/main.o
+                0x200001cc                htim2
+ .bss.htim3     0x20000214       0x48 ./Core/Src/main.o
+                0x20000214                htim3
+ .bss.htim16    0x2000025c       0x48 ./Core/Src/main.o
+                0x2000025c                htim16
+ .bss.htim17    0x200002a4       0x48 ./Core/Src/main.o
+                0x200002a4                htim17
+ .bss.RxHeader  0x200002ec       0x1c ./Core/Src/main.o
+                0x200002ec                RxHeader
  .bss.TxHeader_adc
-                0x200002f4       0x18 ./Core/Src/main.o
-                0x200002f4                TxHeader_adc
+                0x20000308       0x18 ./Core/Src/main.o
+                0x20000308                TxHeader_adc
  .bss.TxHeader_adc1
-                0x2000030c       0x18 ./Core/Src/main.o
-                0x2000030c                TxHeader_adc1
+                0x20000320       0x18 ./Core/Src/main.o
+                0x20000320                TxHeader_adc1
  .bss.TxHeader_adc2
-                0x20000324       0x18 ./Core/Src/main.o
-                0x20000324                TxHeader_adc2
+                0x20000338       0x18 ./Core/Src/main.o
+                0x20000338                TxHeader_adc2
  .bss.TxHeader_adc3
-                0x2000033c       0x18 ./Core/Src/main.o
-                0x2000033c                TxHeader_adc3
+                0x20000350       0x18 ./Core/Src/main.o
+                0x20000350                TxHeader_adc3
  .bss.TxHeader_anw
-                0x20000354       0x18 ./Core/Src/main.o
-                0x20000354                TxHeader_anw
+                0x20000368       0x18 ./Core/Src/main.o
+                0x20000368                TxHeader_anw
  .bss.TxHeader_heartbeat
-                0x2000036c       0x18 ./Core/Src/main.o
-                0x2000036c                TxHeader_heartbeat
+                0x20000380       0x18 ./Core/Src/main.o
+                0x20000380                TxHeader_heartbeat
  .bss.TxMailBox
-                0x20000384        0x4 ./Core/Src/main.o
-                0x20000384                TxMailBox
+                0x20000398        0x4 ./Core/Src/main.o
+                0x20000398                TxMailBox
  .bss.TxData_adc
-                0x20000388        0x8 ./Core/Src/main.o
-                0x20000388                TxData_adc
+                0x2000039c        0x8 ./Core/Src/main.o
+                0x2000039c                TxData_adc
  .bss.TxData_adc1
-                0x20000390        0x4 ./Core/Src/main.o
-                0x20000390                TxData_adc1
+                0x200003a4        0x4 ./Core/Src/main.o
+                0x200003a4                TxData_adc1
  .bss.TxData_adc2
-                0x20000394        0x4 ./Core/Src/main.o
-                0x20000394                TxData_adc2
+                0x200003a8        0x4 ./Core/Src/main.o
+                0x200003a8                TxData_adc2
  .bss.TxData_heartbeat
-                0x20000398        0x1 ./Core/Src/main.o
-                0x20000398                TxData_heartbeat
- *fill*         0x20000399        0x3 
- .bss.adc_buff  0x2000039c       0x24 ./Core/Src/main.o
-                0x2000039c                adc_buff
- .bss.RxData    0x200003c0        0x8 ./Core/Src/main.o
-                0x200003c0                RxData
+                0x200003ac        0x1 ./Core/Src/main.o
+                0x200003ac                TxData_heartbeat
+ *fill*         0x200003ad        0x3 
+ .bss.adc_buff  0x200003b0       0x24 ./Core/Src/main.o
+                0x200003b0                adc_buff
+ .bss.RxData    0x200003d4        0x8 ./Core/Src/main.o
+                0x200003d4                RxData
  .bss.value_adc
-                0x200003c8       0x12 ./Core/Src/main.o
-                0x200003c8                value_adc
- .bss.adc1      0x200003da        0x2 ./Core/Src/main.o
-                0x200003da                adc1
- .bss.adc2      0x200003dc        0x2 ./Core/Src/main.o
-                0x200003dc                adc2
- .bss.adc3      0x200003de        0x2 ./Core/Src/main.o
-                0x200003de                adc3
- .bss.adc4      0x200003e0        0x2 ./Core/Src/main.o
-                0x200003e0                adc4
- .bss.adc5      0x200003e2        0x2 ./Core/Src/main.o
-                0x200003e2                adc5
- .bss.adc6      0x200003e4        0x2 ./Core/Src/main.o
-                0x200003e4                adc6
- .bss.adc7      0x200003e6        0x2 ./Core/Src/main.o
-                0x200003e6                adc7
- .bss.adc8      0x200003e8        0x2 ./Core/Src/main.o
-                0x200003e8                adc8
- .bss.adc9      0x200003ea        0x2 ./Core/Src/main.o
-                0x200003ea                adc9
+                0x200003dc       0x12 ./Core/Src/main.o
+                0x200003dc                value_adc
+ .bss.adc1      0x200003ee        0x2 ./Core/Src/main.o
+                0x200003ee                adc1
+ .bss.adc2      0x200003f0        0x2 ./Core/Src/main.o
+                0x200003f0                adc2
+ .bss.adc3      0x200003f2        0x2 ./Core/Src/main.o
+                0x200003f2                adc3
+ .bss.adc4      0x200003f4        0x2 ./Core/Src/main.o
+                0x200003f4                adc4
+ .bss.adc5      0x200003f6        0x2 ./Core/Src/main.o
+                0x200003f6                adc5
+ .bss.adc6      0x200003f8        0x2 ./Core/Src/main.o
+                0x200003f8                adc6
+ .bss.adc7      0x200003fa        0x2 ./Core/Src/main.o
+                0x200003fa                adc7
+ .bss.adc8      0x200003fc        0x2 ./Core/Src/main.o
+                0x200003fc                adc8
+ .bss.adc9      0x200003fe        0x2 ./Core/Src/main.o
+                0x200003fe                adc9
  .bss.tempDataFlag
-                0x200003ec        0x1 ./Core/Src/main.o
-                0x200003ec                tempDataFlag
+                0x20000400        0x1 ./Core/Src/main.o
+                0x20000400                tempDataFlag
  .bss.pressDataFlag
-                0x200003ed        0x1 ./Core/Src/main.o
-                0x200003ed                pressDataFlag
+                0x20000401        0x1 ./Core/Src/main.o
+                0x20000401                pressDataFlag
  .bss.fuelDataFlag
-                0x200003ee        0x1 ./Core/Src/main.o
-                0x200003ee                fuelDataFlag
+                0x20000402        0x1 ./Core/Src/main.o
+                0x20000402                fuelDataFlag
  .bss.rpmDataFlag
-                0x200003ef        0x1 ./Core/Src/main.o
-                0x200003ef                rpmDataFlag
- .bss.battDataFlag
-                0x200003f0        0x1 ./Core/Src/main.o
-                0x200003f0                battDataFlag
- *fill*         0x200003f1        0x1 
- .bss.ect       0x200003f2        0x2 ./Core/Src/main.o
-                0x200003f2                ect
- .bss.oilTemp   0x200003f4        0x2 ./Core/Src/main.o
-                0x200003f4                oilTemp
- .bss.oilPress  0x200003f6        0x2 ./Core/Src/main.o
-                0x200003f6                oilPress
- .bss.fuelPress
-                0x200003f8        0x2 ./Core/Src/main.o
-                0x200003f8                fuelPress
- .bss.battVolt  0x200003fa        0x2 ./Core/Src/main.o
-                0x200003fa                battVolt
- .bss.rpm       0x200003fc        0x2 ./Core/Src/main.o
-                0x200003fc                rpm
- .bss.instFuelConsumption
-                0x200003fe        0x2 ./Core/Src/main.o
-                0x200003fe                instFuelConsumption
- .bss.battVoltFlagDone
-                0x20000400        0x3 ./Core/Src/main.o
-                0x20000400                battVoltFlagDone
- .bss.ectEmergencyFlag
                 0x20000403        0x1 ./Core/Src/main.o
-                0x20000403                ectEmergencyFlag
- .bss.oilEmergencyFlag
+                0x20000403                rpmDataFlag
+ .bss.battDataFlag
                 0x20000404        0x1 ./Core/Src/main.o
-                0x20000404                oilEmergencyFlag
- .bss.send      0x20000405        0x1 ./Core/Src/main.o
-                0x20000405                send
+                0x20000404                battDataFlag
+ *fill*         0x20000405        0x1 
+ .bss.ect       0x20000406        0x2 ./Core/Src/main.o
+                0x20000406                ect
+ .bss.oilTemp   0x20000408        0x2 ./Core/Src/main.o
+                0x20000408                oilTemp
+ .bss.oilPress  0x2000040a        0x2 ./Core/Src/main.o
+                0x2000040a                oilPress
+ .bss.fuelPress
+                0x2000040c        0x2 ./Core/Src/main.o
+                0x2000040c                fuelPress
+ .bss.battVolt  0x2000040e        0x2 ./Core/Src/main.o
+                0x2000040e                battVolt
+ .bss.rpm       0x20000410        0x2 ./Core/Src/main.o
+                0x20000410                rpm
+ .bss.instFuelConsumption
+                0x20000412        0x2 ./Core/Src/main.o
+                0x20000412                instFuelConsumption
+ .bss.battVoltFlagDone
+                0x20000414        0x3 ./Core/Src/main.o
+                0x20000414                battVoltFlagDone
+ .bss.ectEmergencyFlag
+                0x20000417        0x1 ./Core/Src/main.o
+                0x20000417                ectEmergencyFlag
+ .bss.oilEmergencyFlag
+                0x20000418        0x1 ./Core/Src/main.o
+                0x20000418                oilEmergencyFlag
+ .bss.send      0x20000419        0x1 ./Core/Src/main.o
+                0x20000419                send
  .bss.heartbeatFlag
-                0x20000406        0x1 ./Core/Src/main.o
-                0x20000406                heartbeatFlag
- *fill*         0x20000407        0x1 
- .bss.battVoltBuffer
-                0x20000408       0x14 ./Core/Src/main.o
-                0x20000408                battVoltBuffer
+                0x2000041a        0x1 ./Core/Src/main.o
+                0x2000041a                heartbeatFlag
+ *fill*         0x2000041b        0x1 
  .bss.battVoltAverage
                 0x2000041c        0x2 ./Core/Src/main.o
                 0x2000041c                battVoltAverage
@@ -4344,7 +4344,7 @@ LOAD C:/ST/STM32CubeIDE_1.13.2/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
                 0x20000424                        __bss_end__ = _ebss
 
 ._user_heap_stack
-                0x20000424      0x604 load address 0x08006924
+                0x20000424      0x604 load address 0x08006938
                 0x20000428                        . = ALIGN (0x8)
  *fill*         0x20000424        0x4 
                 [!provide]                        PROVIDE (end = .)
