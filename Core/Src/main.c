@@ -123,6 +123,7 @@ uint16_t dutyPumpEctTh[3] = {60, 80, 90};
 uint16_t dutyPumpNill = 80;
 uint16_t dutyFanOilTh[3] = {70, 70, 70};
 uint16_t dutyPumpOilTh[3] = {70, 70, 70};
+uint8_t battVoltFlagDone[3];
 uint8_t ectEmergencyFlag;
 uint8_t oilEmergencyFlag;
 uint8_t send = 0;
@@ -241,9 +242,9 @@ void tempActions(){
 			}
 		}
 	}else{
-		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
-		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, SET);
-		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
+		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, RESET);
+		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, RESET);
+		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, RESET);
 		TIM3->CCR1 = dutyFanNill;
 		TIM3->CCR2 = dutyFanNill;
 		TIM17->CCR1 = dutyPumpNill;
@@ -301,23 +302,24 @@ void mapeoADC(){
 void battControl(){
 	battDataFlag = 0;
 	uint8_t arrayLength = (sizeof(dutyFanEctTh)/sizeof(dutyFanEctTh[0]));
-	if(battVoltAverage < battTh[2]){
-		for(uint8_t i=0; (i=arrayLength); i++){
+	if((battVoltAverage < battTh[2])&&(battVoltFlagDone[0] == 0)){
+		battVoltFlagDone[0] = 1;
+		for(uint8_t i=0; (i<arrayLength); i++){
 			dutyFanEctTh[i] = dutyFanEctTh[i]-5;
 			dutyFanOilTh[i] = dutyFanOilTh[i]-5;
-			i = 0;
 		}
-		if(battVoltAverage < battTh[1]){
-			for(uint8_t i=0; (i=arrayLength); i++){
-				dutyFanEctTh[i] = dutyFanEctTh[i]-10;
-				dutyFanOilTh[i] = dutyFanOilTh[i]-10;
-				i = 0;
+		if((battVoltAverage < battTh[1])&&(battVoltFlagDone[1] == 0)){
+			battVoltFlagDone[1] = 1;
+			for(uint8_t i=0; (i<arrayLength); i++){
+				dutyFanEctTh[i] = dutyFanEctTh[i]-7;
+				dutyFanOilTh[i] = dutyFanOilTh[i]-7;
 
 			}
-			if(battVoltAverage < battTh[0]){
-				for(uint8_t i=0; (i=arrayLength); i++){
-					dutyFanEctTh[i] = dutyFanEctTh[i]-20;
-					dutyFanOilTh[i] = dutyFanOilTh[i]-20;
+			if((battVoltAverage < battTh[0])&&(battVoltFlagDone[2] == 0)){
+				battVoltFlagDone[2] = 1;
+				for(uint8_t i=0; (i<arrayLength); i++){
+					dutyFanEctTh[i] = dutyFanEctTh[i]-10;
+					dutyFanOilTh[i] = dutyFanOilTh[i]-10;
 
 				}
 			}
@@ -327,7 +329,7 @@ void battControl(){
 
 void fillBatVoltBuffer(){
 	uint8_t bufferSize = (sizeof(battVoltBuffer)/sizeof(battVoltBuffer[0]));
-	for (uint8_t i = 0; (i= bufferSize); i++) {
+	for (uint8_t i = 0; (i< bufferSize); i++) {
 	        battVoltBuffer[i] = battVoltBuffer[i + 1];
 	}
 	battVoltBuffer[bufferSize-1] = battVolt;
@@ -700,17 +702,29 @@ static void MX_CAN_Init(void)
   /* USER CODE BEGIN CAN_Init 2 */
 	CAN_FilterTypeDef canfilterconfig;
 
+//	canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
+//	canfilterconfig.FilterBank = 10;
+//	canfilterconfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+//	canfilterconfig.FilterMode = CAN_FILTERMODE_IDLIST;
+//	canfilterconfig.FilterScale = CAN_FILTERSCALE_16BIT;
+//	canfilterconfig.FilterIdHigh = 0x1B1 << 5;
+//	canfilterconfig.FilterIdLow = 0x3A1 << 5;
+//	canfilterconfig.SlaveStartFilterBank = 0;
 	canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
 	canfilterconfig.FilterBank = 10;
 	canfilterconfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-	canfilterconfig.FilterMode = CAN_FILTERMODE_IDLIST;
-	canfilterconfig.FilterScale = CAN_FILTERSCALE_16BIT;
-	canfilterconfig.FilterIdHigh = 0x1B1 << 5;
-	canfilterconfig.FilterIdLow = 0x3A1 << 5;
-	//canfilterconfig.FilterMaskIdHigh = 0x3A1<<5;
-	//canfilterconfig.FilterMaskIdLow = 0x0000;
+	canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;  // Modo enmascarado
+	canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT; // Filtro de 32 bits
+
+	// Aceptar todos los IDs: ID = 0x00000000, Máscara = 0x00000000
+	canfilterconfig.FilterIdHigh = 0x0000;
+	canfilterconfig.FilterIdLow = 0x0000;
+	canfilterconfig.FilterMaskIdHigh = 0x0000;
+	canfilterconfig.FilterMaskIdLow = 0x0000;
+
 	canfilterconfig.SlaveStartFilterBank = 0;
 
+	HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
 	HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
   /* USER CODE END CAN_Init 2 */
 
