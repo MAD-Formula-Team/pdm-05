@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,6 +37,9 @@
 #define ADC_ID2 0x3B3
 #define ADC_ID3 0x3B4
 #define ANW_ID 0x2B1
+#define ADC_CMD_IN1 0x0000   // ADD2: 0 - ADD1: 0 - ADD0: 0
+#define ADC_CMD_IN2 0x0008   // ADD2: 0 - ADD1: 0 - ADD0: 1
+#define ADC_CMD_IN3 0x0010   // ADD2: 0 - ADD1: 1 - ADD0: 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -51,6 +54,8 @@ DMA_HandleTypeDef hdma_adc;
 CAN_HandleTypeDef hcan;
 
 SPI_HandleTypeDef hspi2;
+DMA_HandleTypeDef hdma_spi2_tx;
+DMA_HandleTypeDef hdma_spi2_rx;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
@@ -98,6 +103,10 @@ uint8_t TxData_adc3[2];
 uint8_t TxData_anw[2];
 uint8_t TxData_heartbeat[1];
 
+uint16_t txSPIBuffer[4];
+uint16_t rxSPIBuffer[4];
+uint16_t adc_SPIbuff[3];
+
 uint32_t adc_buff[9];
 uint8_t RxData[8];
 uint16_t value_adc[9];
@@ -126,9 +135,6 @@ uint8_t ectEmergencyFlag;
 uint8_t oilEmergencyFlag;
 uint8_t send = 0;
 uint8_t heartbeatFlag = 0;
-
-
-
 
 
 
@@ -280,6 +286,16 @@ void mapeoADC(){
 	adc8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Alternator Esto debería de ser (value_adc[7] *(3.3/4095)-0.33) *(1000/0.264)
 	adc9 = (((value_adc[8] * (3.3 / 4095) - 0.5)) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
 }
+
+void Read_3Channels_ADC(){
+	txSPIBuffer[0] = ADC_CMD_IN1;
+	txSPIBuffer[1] = ADC_CMD_IN2;
+	txSPIBuffer[2] = ADC_CMD_IN3;
+	txSPIBuffer[3] = 0x0000;
+
+	HAL_GPIO_WritePin(CS_GPIO_Port, CS_Pin, RESET);
+	HAL_SPI_TransmitReceive_DMA(&hspi2, (uint8_t*) txSPIBuffer, (uint8_t*) rxSPIBuffer, 4);
+}
 /* USER CODE END 0 */
 
 /**
@@ -385,13 +401,7 @@ int main(void)
 	if (HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING)
 			!= HAL_OK) {
 		Error_Handler();
-
 	}
-
-
-
-
-
 
 
   /* USER CODE END 2 */
@@ -661,7 +671,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -985,6 +995,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel4_5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel4_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel4_5_IRQn);
 
 }
 
@@ -1012,6 +1025,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, V12_NP_Signal_Pin|F1R_Signal_Pin|F2L_Signal_Pin|F1L_Signal_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(CS_GPIO_Port, CS_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, WPR_Signal_Pin|WPL_Signal_Pin|Reset_Pin|F2R_Signal_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : Ecu_Signal_Pin */
@@ -1021,8 +1037,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Ecu_Signal_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : V12_NP_Signal_Pin F1R_Signal_Pin F2L_Signal_Pin F1L_Signal_Pin */
-  GPIO_InitStruct.Pin = V12_NP_Signal_Pin|F1R_Signal_Pin|F2L_Signal_Pin|F1L_Signal_Pin;
+  /*Configure GPIO pins : V12_NP_Signal_Pin CS_Pin F1R_Signal_Pin F2L_Signal_Pin
+                           F1L_Signal_Pin */
+  GPIO_InitStruct.Pin = V12_NP_Signal_Pin|CS_Pin|F1R_Signal_Pin|F2L_Signal_Pin
+                          |F1L_Signal_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1057,6 +1075,19 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 	value_adc[6] = (uint16_t) adc_buff[6];
 	value_adc[7] = (uint16_t) adc_buff[7];
 	value_adc[8] = (uint16_t) adc_buff[8];
+}
+
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
+	if (hspi->Instance == SPI2){
+
+		HAL_GPIO_WritePin(CS_GPIO_Port, CS_Pin, SET);
+
+		adc_SPIbuff[0] = rxBuffer[1] & 0x0FFF; // 12 bits
+		adc_SPIbuff[1] = rxBuffer[2] & 0x0FFF;
+		adc_SPIbuff[2] = rxBuffer[3] & 0x0FFF;
+
+	}
+
 }
 /* USER CODE END 4 */
 
