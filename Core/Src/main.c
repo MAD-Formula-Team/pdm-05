@@ -116,17 +116,21 @@ uint16_t rpm;
 uint16_t instFuelConsumption;
 uint16_t ectTh[4] = {90, 100, 110, 120};
 uint16_t oilTh[4] = {80, 100, 120, 130};
+uint16_t battTh[3] = {1100, 1125, 1150};
 uint16_t dutyFanEctTh[3] = {30, 40, 50};
 uint16_t dutyFanNill = 40;
 uint16_t dutyPumpEctTh[3] = {60, 80, 90};
 uint16_t dutyPumpNill = 80;
-uint16_t dutyFanOilTh[3] = {70,70,70};
-uint16_t dutyPumpOilTh[3] = {70,70,70};
+uint16_t dutyFanOilTh[3] = {70, 70, 70};
+uint16_t dutyPumpOilTh[3] = {70, 70, 70};
 uint8_t ectEmergencyFlag;
 uint8_t oilEmergencyFlag;
 uint8_t send = 0;
 uint8_t heartbeatFlag = 0;
-
+uint16_t battVoltBuffer[10];
+uint16_t battVoltAverage;
+uint8_t canResetEcuFlag;
+uint8_t resetCounter;
 
 
 
@@ -144,8 +148,14 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 			tempDataFlag = 1;
 			ect = (RxData[3] << 8) | RxData[2];
 			ect = ect - 50;
+			if(ect < 0){
+				ect = 0;
+			}
 			oilTemp = (RxData[5] << 8) | RxData[4];
 			oilTemp = oilTemp - 50;
+			if(oilTemp < 0){
+				oilTemp = 0;
+			}
 	}
 	if (RxHeader.StdId == 0x3A2){
 			pressDataFlag = 1;
@@ -164,6 +174,12 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	if (RxHeader.StdId == 0x3A5){
 			battDataFlag = 1;
 			battVolt = (RxData[1] << 8) | RxData[0];
+
+	}
+	if (RxHeader.StdId == 0x092){
+		if (RxData[0] == 0x02)	{
+			canResetEcuFlag = 1;
+		}
 	}
 }
 
@@ -264,9 +280,10 @@ void sendCan(){
 }
 
 void heartbeat(){
-	heartbeatFlag = 0;
 	TxData_heartbeat[0] = 4;
 	HAL_CAN_AddTxMessage(&hcan, &TxHeader_heartbeat, TxData_heartbeat,&TxMailBox);
+	heartbeatFlag = 0;
+
 }
 
 void mapeoADC(){
@@ -279,6 +296,60 @@ void mapeoADC(){
 	adc7 = ((value_adc[6] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
 	adc8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Alternator Esto debería de ser (value_adc[7] *(3.3/4095)-0.33) *(1000/0.264)
 	adc9 = (((value_adc[8] * (3.3 / 4095) - 0.5)) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
+}
+
+void battControl(){
+	battDataFlag = 0;
+	uint8_t arrayLength = (sizeof(dutyFanEctTh)/sizeof(dutyFanEctTh[0]));
+	if(battVoltAverage < battTh[2]){
+		for(uint8_t i=0; (i=arrayLength); i++){
+			dutyFanEctTh[i] = dutyFanEctTh[i]-5;
+			dutyFanOilTh[i] = dutyFanOilTh[i]-5;
+			i = 0;
+		}
+		if(battVoltAverage < battTh[1]){
+			for(uint8_t i=0; (i=arrayLength); i++){
+				dutyFanEctTh[i] = dutyFanEctTh[i]-10;
+				dutyFanOilTh[i] = dutyFanOilTh[i]-10;
+				i = 0;
+
+			}
+			if(battVoltAverage < battTh[0]){
+				for(uint8_t i=0; (i=arrayLength); i++){
+					dutyFanEctTh[i] = dutyFanEctTh[i]-20;
+					dutyFanOilTh[i] = dutyFanOilTh[i]-20;
+
+				}
+			}
+		}
+	}
+}
+
+void fillBatVoltBuffer(){
+	uint8_t bufferSize = (sizeof(battVoltBuffer)/sizeof(battVoltBuffer[0]));
+	for (uint8_t i = 0; (i= bufferSize); i++) {
+	        battVoltBuffer[i] = battVoltBuffer[i + 1];
+	}
+	battVoltBuffer[bufferSize-1] = battVolt;
+}
+
+void gettBatVoltAverage(){
+	uint32_t sum = 0;
+	uint8_t bufferSize = (sizeof(battVoltBuffer)/sizeof(battVoltBuffer[0]));
+	for (uint8_t i = 0; i < bufferSize; i++) {
+		sum += battVoltBuffer[i];
+	}
+	battVoltAverage = sum / bufferSize;
+}
+
+void canResetEcu(){
+	HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, RESET);
+	if(resetCounter >= 2){
+		canResetEcuFlag = 0;
+		resetCounter = 0;
+		HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, SET);
+	}
+
 }
 /* USER CODE END 0 */
 
@@ -400,10 +471,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, SET);
+
 	  mapeoADC();
-
-
 	  if(tempDataFlag){
 		  tempActions();
 	  }
@@ -413,7 +482,16 @@ int main(void)
 	  if(heartbeatFlag >= 5 ){
 		  heartbeat();
 	  }
-
+	  if(battDataFlag){
+		  fillBatVoltBuffer();
+		  gettBatVoltAverage();
+		  battControl();
+	  }
+	  if(canResetEcuFlag){
+		  canResetEcu();
+	  }else{
+		  HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, SET);
+	  }
 
 
     /* USER CODE END WHILE */
@@ -1044,6 +1122,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance == TIM1) {
 		send = 1;
 		heartbeatFlag = heartbeatFlag+1;
+		if(canResetEcuFlag == 1){
+			resetCounter = resetCounter+1;
+		}
 	}
 }
 
