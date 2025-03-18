@@ -107,8 +107,8 @@ uint8_t pressDataFlag;
 uint8_t fuelDataFlag;
 uint8_t rpmDataFlag;
 uint8_t battDataFlag;
-uint16_t ect;
-uint16_t oilTemp;
+int16_t ect;
+int16_t oilTemp;
 uint16_t oilPress;
 uint16_t fuelPress;
 uint16_t battVolt;
@@ -116,16 +116,16 @@ uint16_t rpm;
 uint16_t instFuelConsumption;
 uint16_t ectTh[4] = {90, 100, 110, 120};
 uint16_t oilTh[4] = {80, 100, 120, 130};
-uint16_t dutyFanEctTh[3] = {70, 70, 70};
+uint16_t dutyFanEctTh[3] = {30, 40, 50};
 uint16_t dutyFanNill = 40;
-uint16_t dutyPumpEctTh[3] = {70, 70, 70};
+uint16_t dutyPumpEctTh[3] = {60, 80, 90};
 uint16_t dutyPumpNill = 80;
 uint16_t dutyFanOilTh[3] = {70,70,70};
 uint16_t dutyPumpOilTh[3] = {70,70,70};
 uint8_t ectEmergencyFlag;
 uint8_t oilEmergencyFlag;
 uint8_t send = 0;
-
+uint8_t heartbeatFlag = 0;
 
 
 
@@ -168,11 +168,12 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 }
 
 void tempActions(){
+
 	tempDataFlag = 0;
 	if(ect > ectTh[0]){
 		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
 		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
-		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
+		HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, SET);
 		TIM2->CCR3 = dutyFanEctTh[0];
 		TIM2->CCR4 = dutyFanEctTh[0];
 		TIM16->CCR1 = dutyPumpEctTh[0];
@@ -195,14 +196,14 @@ void tempActions(){
 	}else{
 		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, RESET);
 		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, RESET);
-		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, RESET);
+		HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, RESET);
 		TIM2->CCR3 = dutyFanNill;
 		TIM2->CCR4 = dutyFanNill;
 		TIM16->CCR1 = dutyPumpNill;
 	}
 	if(oilTemp > oilTh[0]){
-		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
-		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
+		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, SET);
+		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, SET);
 		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
 		TIM3->CCR1 = dutyFanEctTh[0];
 		TIM3->CCR2 = dutyFanEctTh[0];
@@ -225,12 +226,59 @@ void tempActions(){
 		}
 	}else{
 		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
-		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
+		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, SET);
 		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
 		TIM3->CCR1 = dutyFanNill;
 		TIM3->CCR2 = dutyFanNill;
 		TIM17->CCR1 = dutyPumpNill;
 	}
+}
+
+void sendCan(){
+	send = 0;
+
+	TxData_adc[0] = (adc8 >> 8) & 0xFF;
+	TxData_adc[1] = adc8 & 0xFF;
+	TxData_adc[2] = (adc2 >> 8) & 0xFF;
+	TxData_adc[3] = adc2 & 0xFF;
+	TxData_adc[4] = (adc3 >> 8) & 0xFF;
+	TxData_adc[5] = adc3 & 0xFF;
+	TxData_adc[6] = (adc4 >> 8) & 0xFF;
+	TxData_adc[7] = adc4 & 0xFF;
+
+	HAL_CAN_AddTxMessage(&hcan, &TxHeader_adc, TxData_adc, &TxMailBox);
+
+	TxData_adc1[0] = (adc5 >> 8) & 0xFF;
+	TxData_adc1[1] = adc5 & 0xFF;
+	TxData_adc1[2] = (adc1 >> 8) & 0xFF;
+	TxData_adc1[3] = adc1 & 0xFF;
+
+	HAL_CAN_AddTxMessage(&hcan, &TxHeader_adc1, TxData_adc1, &TxMailBox);
+
+	TxData_adc2[0] = (adc6 >> 8) & 0xFF;
+	TxData_adc2[1] = adc6 & 0xFF;
+	TxData_adc2[2] = (adc9 >> 8) & 0xFF;
+	TxData_adc2[3] = adc9 & 0xFF;
+
+	HAL_CAN_AddTxMessage(&hcan, &TxHeader_adc2, TxData_adc2, &TxMailBox);
+}
+
+void heartbeat(){
+	heartbeatFlag = 0;
+	TxData_heartbeat[0] = 4;
+	HAL_CAN_AddTxMessage(&hcan, &TxHeader_heartbeat, TxData_heartbeat,&TxMailBox);
+}
+
+void mapeoADC(){
+	adc1 = ((value_adc[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.132); //
+	adc2 = ((value_adc[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc3 = ((value_adc[2] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc4 = ((value_adc[3] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc5 = ((value_adc[4] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc6 = ((value_adc[5] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc7 = ((value_adc[6] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
+	adc8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Alternator Esto debería de ser (value_adc[7] *(3.3/4095)-0.33) *(1000/0.264)
+	adc9 = (((value_adc[8] * (3.3 / 4095) - 0.5)) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
 }
 /* USER CODE END 0 */
 
@@ -275,6 +323,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_ADC_Start_DMA(&hadc, adc_buff, 9); //Inicia el DMA se le pasa el ADC, la variable donde guardar los datos y el numero de canales
   HAL_ADC_Start_IT(&hadc); //Se inicia la interrupcion de fin de conversion del ADC en el "Set-up"
+  HAL_CAN_Start(&hcan);
   HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
   HAL_TIM_Base_Start_IT(&htim1);
   TIM2->CCR3 = dutyFanNill;
@@ -339,17 +388,7 @@ int main(void)
 
 	}
 
-void mapeoADC(){
-	adc1 = ((value_adc[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.132); //
-	adc2 = ((value_adc[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc3 = ((value_adc[2] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc4 = ((value_adc[3] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc5 = ((value_adc[4] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc6 = ((value_adc[5] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc7 = ((value_adc[6] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //
-	adc8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Alternator Esto debería de ser (value_adc[7] *(3.3/4095)-0.33) *(1000/0.264)
-	adc9 = (((value_adc[8] * (3.3 / 4095) - 0.5)) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
-}
+
 
 
 
@@ -361,14 +400,19 @@ void mapeoADC(){
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_GPIO_WritePin(GPIOA, WPR_Signal_Pin, SET);
+	  HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, SET);
 	  mapeoADC();
 
 
 	  if(tempDataFlag){
 		  tempActions();
 	  }
-
+	  if(send){
+		  sendCan();
+	  }
+	  if(heartbeatFlag >= 5 ){
+		  heartbeat();
+	  }
 
 
 
@@ -576,7 +620,20 @@ static void MX_CAN_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN_Init 2 */
+	CAN_FilterTypeDef canfilterconfig;
 
+	canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
+	canfilterconfig.FilterBank = 10;
+	canfilterconfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	canfilterconfig.FilterMode = CAN_FILTERMODE_IDLIST;
+	canfilterconfig.FilterScale = CAN_FILTERSCALE_16BIT;
+	canfilterconfig.FilterIdHigh = 0x1B1 << 5;
+	canfilterconfig.FilterIdLow = 0x3A1 << 5;
+	//canfilterconfig.FilterMaskIdHigh = 0x3A1<<5;
+	//canfilterconfig.FilterMaskIdLow = 0x0000;
+	canfilterconfig.SlaveStartFilterBank = 0;
+
+	HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
   /* USER CODE END CAN_Init 2 */
 
 }
@@ -985,11 +1042,8 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance == TIM1) {
-		if(send){
-			send = 0;
-		}else{
-			send =1;
-		}
+		send = 1;
+		heartbeatFlag = heartbeatFlag+1;
 	}
 }
 
