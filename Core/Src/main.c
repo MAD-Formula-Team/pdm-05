@@ -128,7 +128,7 @@ uint8_t ectEmergencyFlag;
 uint8_t oilEmergencyFlag;
 uint8_t send = 0;
 uint8_t heartbeatFlag = 0;
-uint16_t battVoltBuffer[10];
+uint16_t battVoltBuffer[10] = {1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300};
 uint16_t battVoltAverage;
 uint8_t canResetEcuFlag;
 uint8_t resetCounter;
