@@ -37,6 +37,7 @@
 #define ADC_ID2 0x3B3
 #define ADC_ID3 0x3B4
 #define ANW_ID 0x2B1
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -99,6 +100,7 @@ uint8_t TxData_anw[2];
 uint8_t TxData_heartbeat[1];
 
 uint32_t adc_buff[9];
+uint16_t adcSpiBuffer[3];
 uint8_t RxData[8];
 uint16_t value_adc[9];
 int16_t adc1, adc2, adc3, adc4, adc5, adc6, adc7, adc8, adc9;
@@ -132,12 +134,13 @@ uint16_t battVoltBuffer[10] = {1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1
 uint16_t battVoltAverage;
 uint8_t canResetEcuFlag;
 uint8_t resetCounter;
+uint16_t txSpiData;
+uint16_t rxSpiData;
 
 
 
-
-
-
+#define CS_LOW()  HAL_GPIO_WritePin(CS_PIN_GPIO_Port, CS_PIN_Pin, GPIO_PIN_RESET);  // Ajusta según tu hardware
+#define CS_HIGH() HAL_GPIO_WritePin(CS_PIN_GPIO_Port, CS_PIN_Pin, GPIO_PIN_SET);
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK) {
@@ -308,21 +311,21 @@ void battControl(){
 			dutyFanEctTh[i] = dutyFanEctTh[i]-5;
 			dutyFanOilTh[i] = dutyFanOilTh[i]-5;
 		}
-		if((battVoltAverage < battTh[1])&&(battVoltFlagDone[1] == 0)){
-			battVoltFlagDone[1] = 1;
-			for(uint8_t i=0; (i<arrayLength); i++){
-				dutyFanEctTh[i] = dutyFanEctTh[i]-7;
-				dutyFanOilTh[i] = dutyFanOilTh[i]-7;
+	}
+	if((battVoltAverage < battTh[1])&&(battVoltFlagDone[1] == 0)){
+		battVoltFlagDone[1] = 1;
+		for(uint8_t i=0; (i<arrayLength); i++){
+			dutyFanEctTh[i] = dutyFanEctTh[i]-7;
+			dutyFanOilTh[i] = dutyFanOilTh[i]-7;
 
-			}
-			if((battVoltAverage < battTh[0])&&(battVoltFlagDone[2] == 0)){
-				battVoltFlagDone[2] = 1;
-				for(uint8_t i=0; (i<arrayLength); i++){
-					dutyFanEctTh[i] = dutyFanEctTh[i]-10;
-					dutyFanOilTh[i] = dutyFanOilTh[i]-10;
+		}
+	}
+	if((battVoltAverage < battTh[0])&&(battVoltFlagDone[2] == 0)){
+		battVoltFlagDone[2] = 1;
+		for(uint8_t i=0; (i<arrayLength); i++){
+			dutyFanEctTh[i] = dutyFanEctTh[i]-10;
+			dutyFanOilTh[i] = dutyFanOilTh[i]-10;
 
-				}
-			}
 		}
 	}
 }
@@ -352,6 +355,33 @@ void canResetEcu(){
 		HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, SET);
 	}
 
+}
+
+void Read_All_ADC_Channels() {
+    uint8_t numChannels = 3;
+    uint16_t dummyRead;  // Variable para la primera lectura incorrecta
+
+    // 1ª vuelta: se configuran los canales pero los datos leídos no son válidos aún
+    for (uint8_t i = 0; i < numChannels; i++) {
+        txSpiData = (i & 0x07) << 12;  // Configurar el canal en el mensaje de SPI
+        CS_LOW();
+        HAL_SPI_TransmitReceive(&hspi2, (uint8_t*)&txSpiData, (uint8_t*)&dummyRead, 1, HAL_MAX_DELAY);
+        CS_HIGH();
+    }
+
+    HAL_Delay(1);  // Breve pausa para asegurar estabilidad
+
+    // 2ª vuelta: ahora sí obtenemos los datos correctos
+    for (uint8_t i = 0; i < numChannels; i++) {
+        txSpiData = (i & 0x07) << 12;  // Configurar el canal en el mensaje de SPI
+        rxSpiData = 0;
+
+        CS_LOW();
+        HAL_SPI_TransmitReceive(&hspi2, (uint8_t*)&txSpiData, (uint8_t*)&rxSpiData, 1, HAL_MAX_DELAY);
+        CS_HIGH();
+
+        adcSpiBuffer[i] = rxSpiData & 0x0FFF;  // Extraer solo los 12 bits de datos del ADC
+    }
 }
 /* USER CODE END 0 */
 
@@ -480,6 +510,7 @@ int main(void)
 	  }
 	  if(send){
 		  sendCan();
+		  Read_All_ADC_Channels();
 	  }
 	  if(heartbeatFlag > 5 ){
 		  heartbeat();
@@ -753,7 +784,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -1101,7 +1132,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, V12_NP_Signal_Pin|F1R_Signal_Pin|F2L_Signal_Pin|F1L_Signal_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, V12_NP_Signal_Pin|CS_PIN_Pin|F1R_Signal_Pin|F2L_Signal_Pin
+                          |F1L_Signal_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, WPR_Signal_Pin|WPL_Signal_Pin|Reset_Pin|F2R_Signal_Pin, GPIO_PIN_RESET);
@@ -1113,8 +1145,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Ecu_Signal_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : V12_NP_Signal_Pin F1R_Signal_Pin F2L_Signal_Pin F1L_Signal_Pin */
-  GPIO_InitStruct.Pin = V12_NP_Signal_Pin|F1R_Signal_Pin|F2L_Signal_Pin|F1L_Signal_Pin;
+  /*Configure GPIO pins : V12_NP_Signal_Pin CS_PIN_Pin F1R_Signal_Pin F2L_Signal_Pin
+                           F1L_Signal_Pin */
+  GPIO_InitStruct.Pin = V12_NP_Signal_Pin|CS_PIN_Pin|F1R_Signal_Pin|F2L_Signal_Pin
+                          |F1L_Signal_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
