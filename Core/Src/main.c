@@ -124,7 +124,7 @@ uint16_t dutyFanNill = 40;
 uint16_t dutyPumpEctTh[3] = {60, 80, 90};
 uint16_t dutyPumpNill = 80;
 uint16_t dutyFanOilTh[3] = {70, 70, 70};
-uint16_t dutyPumpOilTh[3] = {70, 70, 70};
+uint16_t dutyPumpOilTh[3] = {60, 70, 80};
 uint8_t battVoltFlagDone[3];
 uint8_t ectEmergencyFlag;
 uint8_t oilEmergencyFlag;
