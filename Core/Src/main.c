@@ -132,7 +132,7 @@ uint8_t canResetEcuFlag;
 uint8_t resetCounter;
 uint16_t txSpiData;
 uint16_t rxSpiData;
-uint8_t ectEmergencyFlag, oilEmergencyFlag, fuelPumpEmergencyFlag;
+uint8_t ectEmergencyFlag, oilEmergencyFlag, fuelPumpEmergencyFlag, battVoltEmergencyFlag;
 uint8_t send = 0;
 uint8_t heartbeatFlag = 0;
 
@@ -143,6 +143,11 @@ uint8_t heartbeatFlag = 0;
 #define V12NpOn() HAL_GPIO_WritePin(V12_NP_Signal_GPIO_Port, V12_NP_Signal_Pin, SET);
 
 
+void translateDuty(uint16_t *buffer, uint8_t bufferSize){
+	for (uint8_t i = 0; i < 3; i++) {
+	        buffer[i] = (5 + ((buffer[i]/100)*5));  //
+	    }
+}
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK) {
 
@@ -187,9 +192,11 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		}
 	}
 }
-
 void tempActions(){
-
+	translateDuty(dutyFanEctTh, 3);
+	translateDuty(dutyFanOilTh, 3);
+	translateDuty(dutyPumpEctTh, 3);
+	translateDuty(dutyPumpOilTh, 3);
 	tempDataFlag = 0;
 	if(ect > ectTh[0]){
 		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
@@ -254,7 +261,6 @@ void tempActions(){
 		TIM17->CCR1 = dutyPumpNill;
 	}
 }
-
 void sendCan(){
 	send = 0;
 
@@ -295,14 +301,12 @@ void sendCan(){
 	HAL_CAN_AddTxMessage(&hcan, &TxHeader_emergency, TxData_emergency, &TxMailBox);
 
 }
-
 void heartbeat(){
 	TxData_heartbeat[0] = 4;
 	HAL_CAN_AddTxMessage(&hcan, &TxHeader_heartbeat, TxData_heartbeat,&TxMailBox);
 	heartbeatFlag = 0;
 
 }
-
 void mapeoADC(){
 	adc1 = ((value_adc[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.132); // ALTERNATOR
 	adc2 = ((value_adc[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // WPL
@@ -317,7 +321,6 @@ void mapeoADC(){
 	adc11 = ((adcSpiBuffer[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // Fuel Pump
 	adc12 = ((adcSpiBuffer[2] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Ignition
 }
-
 void battControl(){
 	battDataFlag = 0;
 	uint8_t arrayLength = (sizeof(dutyFanEctTh)/sizeof(dutyFanEctTh[0]));
@@ -340,6 +343,7 @@ void battControl(){
 		V12NpOff();
 		if(battVoltFlagDone[2] == 0){
 			battVoltFlagDone[2] = 1;
+			battVoltEmergencyFlag = 1;
 			for(uint8_t i=0; (i<arrayLength); i++){
 				dutyFanEctTh[i] = dutyFanEctTh[i]-10;
 				dutyFanOilTh[i] = dutyFanOilTh[i]-10;
@@ -349,7 +353,6 @@ void battControl(){
 		V12NpOn();
 	}
 }
-
 void fillBatVoltBuffer(){
 	uint8_t bufferSize = (sizeof(battVoltBuffer)/sizeof(battVoltBuffer[0]));
 	for (uint8_t i = 0; (i< bufferSize); i++) {
@@ -357,7 +360,6 @@ void fillBatVoltBuffer(){
 	}
 	battVoltBuffer[bufferSize-1] = battVolt;
 }
-
 void gettBatVoltAverage(){
 	uint32_t sum = 0;
 	uint8_t bufferSize = (sizeof(battVoltBuffer)/sizeof(battVoltBuffer[0]));
@@ -366,7 +368,6 @@ void gettBatVoltAverage(){
 	}
 	battVoltAverage = sum / bufferSize;
 }
-
 void canResetEcu(){
 	HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, RESET);
 	if(resetCounter >= 2){
@@ -376,7 +377,6 @@ void canResetEcu(){
 	}
 
 }
-
 void Read_All_ADC_Channels() {
     uint8_t numChannels = 3;
     uint16_t dummyRead;  // Variable para la primera lectura incorrecta
@@ -419,13 +419,12 @@ void fillBuffer(uint16_t *buffer, uint16_t bufferSize, uint16_t newValue) {
     for (uint8_t i = 0; i < bufferSize - 1; i++) {
         buffer[i] = buffer[i + 1];  // Mueve los valores a la izquierda
     }
-
     buffer[bufferSize - 1] = newValue;  // Inserta el nuevo valor al final
 }
 void fuelPumpProtection(){
-	fillBuffer(fuelPumpCurrentBuffer, 100, adcSpiBuffer[2]);
+	fillBuffer(fuelPumpCurrentBuffer, 100, adc11);
 	fuelPumpCurrentAverage = getBufferAverage(fuelPumpCurrentBuffer, 100);
-	fillBuffer(fuelPressBuffer, 100,fuelPress);
+	fillBuffer(fuelPressBuffer, 100, fuelPress);
 	fuelPressAverage = getBufferAverage(fuelPressBuffer, 100);
 	if((fuelPumpCurrentAverage > 65000)&&(fuelPumpEmergencyFlag == 0)){
 		fuelPumpEmergencyFlag = 1;
@@ -434,7 +433,6 @@ void fuelPumpProtection(){
 		fuelPumpEmergencyFlag = 1;
 	}
 }
-
 
 
 /* USER CODE END 0 */
