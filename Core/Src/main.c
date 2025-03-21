@@ -116,10 +116,10 @@ int16_t ect, oilTemp, oilPress, fuelPress, battVolt, rpm;
 uint16_t ectTh[4] = {90, 100, 110, 120};
 uint16_t oilTh[4] = {80, 100, 120, 130};
 uint16_t battTh[3] = {1100, 1125, 1150};
+uint16_t dutyFanNill = 4; //es un 4% de duty --> un poco menos de 1ms
+uint16_t dutyPumpNill = 4; //es un 4%de duty --> un poco menos de 1ms
 uint16_t dutyFanEctTh[3] = {30, 40, 50};
-uint16_t dutyFanNill = 0;
 uint16_t dutyPumpEctTh[3] = {60, 70, 90};
-uint16_t dutyPumpNill = 0;
 uint16_t dutyFanOilTh[3] = {30, 40, 50};
 uint16_t dutyPumpOilTh[3] = {60, 70, 90};
 uint8_t battVoltFlagDone[3];
@@ -193,10 +193,6 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	}
 }
 void tempActions(){
-	translateDuty(dutyFanEctTh, 3);
-	translateDuty(dutyFanOilTh, 3);
-	translateDuty(dutyPumpEctTh, 3);
-	translateDuty(dutyPumpOilTh, 3);
 	tempDataFlag = 0;
 	if(ect > ectTh[0]){
 		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
@@ -297,6 +293,9 @@ void sendCan(){
 	}
 	if(oilEmergencyFlag){
 		TxData_emergency[2] = 1;
+	}
+	if(battVoltEmergencyFlag){
+		TxData_emergency[3] = 1;
 	}
 	HAL_CAN_AddTxMessage(&hcan, &TxHeader_emergency, TxData_emergency, &TxMailBox);
 
@@ -551,7 +550,10 @@ int main(void)
 	}
 
 
-
+	translateDuty(dutyFanEctTh, 3);
+	translateDuty(dutyFanOilTh, 3);
+	translateDuty(dutyPumpEctTh, 3);
+	translateDuty(dutyPumpOilTh, 3);
 
 
 
