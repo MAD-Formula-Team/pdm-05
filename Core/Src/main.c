@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdbool.h>  // Incluir la librería estándar de booleanos
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -116,11 +117,11 @@ int16_t ect, oilTemp, oilPress, fuelPress, battVolt, rpm;
 uint16_t ectTh[4] = {90, 100, 110, 120};
 uint16_t oilTh[4] = {80, 100, 120, 130};
 uint16_t battTh[3] = {1100, 1125, 1150};
-uint16_t dutyFanNill = 4; //es un 4% de duty --> un poco menos de 1ms
-uint16_t dutyPumpNill = 4; //es un 4%de duty --> un poco menos de 1ms
-uint16_t dutyFanEctTh[3] = {30, 40, 50};
+uint16_t dutyFanNill = 48; //es un 4% de duty --> un poco menos de 1ms  time_high = (CCR/AAR)*time_period
+uint16_t dutyPumpNill = 10;
+uint16_t dutyFanEctTh[3] = {30, 40, 50}; //poner de 10 en 10 (no 75 )
 uint16_t dutyPumpEctTh[3] = {60, 70, 90};
-uint16_t dutyFanOilTh[3] = {30, 40, 50};
+uint16_t dutyFanOilTh[3] = {30, 40, 50}; //poner de 10 en 10 (no 75 )
 uint16_t dutyPumpOilTh[3] = {60, 70, 90};
 uint8_t battVoltFlagDone[3];
 uint16_t battVoltBuffer[10] = {1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300};
@@ -144,8 +145,8 @@ uint8_t heartbeatFlag = 0;
 
 
 void translateDuty(uint16_t *buffer, uint8_t bufferSize){
-	for (uint8_t i = 0; i < 3; i++) {
-	        buffer[i] = (5 + ((buffer[i]/100)*5));  //
+	for (uint8_t i = 0; i < bufferSize; i++) {
+	        buffer[i] = 50 + ((buffer[i] / 10) * 5);
 	    }
 }
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
@@ -315,7 +316,7 @@ void mapeoADC(){
 	adc6 = ((value_adc[5] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F1L
 	adc7 = ((value_adc[6] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F2L
 	adc8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // 12VNP
-	adc9 = (((value_adc[8] * (3.3 / 4095) - 0.5)) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
+	adc9 = ((value_adc[8] * (3.3 / 4095) - 0.2) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
 	adc10 = ((adcSpiBuffer[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //Injection
 	adc11 = ((adcSpiBuffer[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // Fuel Pump
 	adc12 = ((adcSpiBuffer[2] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Ignition
@@ -351,21 +352,6 @@ void battControl(){
 	}else{
 		V12NpOn();
 	}
-}
-void fillBatVoltBuffer(){
-	uint8_t bufferSize = (sizeof(battVoltBuffer)/sizeof(battVoltBuffer[0]));
-	for (uint8_t i = 0; (i< bufferSize); i++) {
-	        battVoltBuffer[i] = battVoltBuffer[i + 1];
-	}
-	battVoltBuffer[bufferSize-1] = battVolt;
-}
-void gettBatVoltAverage(){
-	uint32_t sum = 0;
-	uint8_t bufferSize = (sizeof(battVoltBuffer)/sizeof(battVoltBuffer[0]));
-	for (uint8_t i = 0; i < bufferSize; i++) {
-		sum += battVoltBuffer[i];
-	}
-	battVoltAverage = sum / bufferSize;
 }
 void canResetEcu(){
 	HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, RESET);
@@ -552,7 +538,7 @@ int main(void)
 
 	translateDuty(dutyFanEctTh, 3);
 	translateDuty(dutyFanOilTh, 3);
-
+	V12NpOn();
 
 
 
@@ -577,7 +563,7 @@ int main(void)
 	  }
 	  if(battDataFlag){
 		  fillBuffer(battVoltBuffer, 10, battVolt);
-		  gettBatVoltAverage();
+		  battVoltAverage= getBufferAverage(battVoltBuffer, 10);
 		  battControl();
 	  }
 	  if(canResetEcuFlag){
