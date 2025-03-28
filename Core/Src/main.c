@@ -131,8 +131,6 @@ uint16_t battVoltAverage, fuelPumpCurrentAverage, instFuelConsumption, fuelPress
 
 uint8_t canResetEcuFlag;
 uint8_t resetCounter;
-uint16_t txSpiData;
-uint16_t rxSpiData;
 uint8_t ectEmergencyFlag, oilEmergencyFlag, fuelPumpEmergencyFlag, battVoltEmergencyFlag;
 uint8_t send = 0;
 uint8_t heartbeatFlag = 0;
@@ -202,23 +200,21 @@ void tempActions(){
 		TIM2->CCR3 = dutyFanEctTh[0];
 		TIM2->CCR4 = dutyFanEctTh[0];
 		TIM16->CCR1 = dutyPumpEctTh[0];
-
+	}
 		if(ect > ectTh[1]){
 			TIM2->CCR3 = dutyFanEctTh[1];
 			TIM2->CCR4 = dutyFanEctTh[1];
 			TIM16->CCR1 = dutyPumpEctTh[1];
-
+		}
 			if(ect > ectTh[2]){
 				TIM2->CCR3 = dutyFanEctTh[2];
 				TIM2->CCR4 = dutyFanEctTh[2];
 				TIM16->CCR1 = dutyPumpEctTh[2];
-
+			}
 				if(ect > ectTh[3]){
 					ectEmergencyFlag = 1;
 				}
-			}
-		}
-	}else{
+	else{
 		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, RESET);
 		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, RESET);
 		HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, RESET);
@@ -308,18 +304,18 @@ void heartbeat(){
 
 }
 void mapeoADC(){
-	adc1 = ((value_adc[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.132); // ALTERNATOR
-	adc2 = ((value_adc[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // WPL
-	adc3 = ((value_adc[2] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // WPR
-	adc4 = ((value_adc[3] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F1R
-	adc5 = ((value_adc[4] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F2R
-	adc6 = ((value_adc[5] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F1L
-	adc7 = ((value_adc[6] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F2L
-	adc8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // 12VNP
-	adc9 = ((value_adc[8] * (3.3 / 4095) - 0.2) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
-	adc10 = ((adcSpiBuffer[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //Injection
-	adc11 = ((adcSpiBuffer[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // Fuel Pump
-	adc12 = ((adcSpiBuffer[2] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Ignition
+	adc1 = ((value_adc[0] * ((330 / 4095)) - 26)/100) * (132/1000); // ALTERNATOR
+	adc2 = ((value_adc[1] * ((330 / 4095)) - 26)/100) * (264/1000); // WPL
+	adc3 = ((value_adc[2] * ((330 / 4095)) - 26)/100) * (264/1000); // WPR
+	adc4 = ((value_adc[3] * ((330 / 4095)) - 26)/100) * (264/1000); // F1R
+	adc5 = ((value_adc[4] * ((330 / 4095)) - 26)/100) * (264/1000); // F2R
+	adc6 = ((value_adc[5] * ((330 / 4095)) - 26)/100) * (264/1000); // F1L
+	adc7 = ((value_adc[6] * ((330 / 4095)) - 26)/100) * (264/1000); // F2L
+	adc8 = ((value_adc[7] * ((330 / 4095)) - 26)/100) * (88/1000); // 12VNP
+	adc9 = ((value_adc[8] * ((330 / 4095)) - 20)/100) * ((1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
+	adc10 = ((adcSpiBuffer[0] * ((330 / 4095)) - 26)/100) * (264/1000); //Injection
+	adc11 = ((adcSpiBuffer[1] * ((330 / 4095)) - 26)/100) * (264/1000); // Fuel Pump
+	adc12 = ((adcSpiBuffer[2] * ((330 / 4095)) - 26)/100) * (88/1000); // Ignition
 }
 void battControl(){
 	battDataFlag = 0;
@@ -388,9 +384,7 @@ void Read_All_ADC_Channels() {
         adcSpiBuffer[i] = rxSpiData & 0x0FFF;  // Extraer solo los 12 bits de datos del ADC
     }
 }
-void currentChecking(){
 
-}
 uint16_t getBufferAverage(uint16_t *buffer, uint8_t bufferSize) {
     uint32_t sum = 0;
 
@@ -464,7 +458,6 @@ int main(void)
   HAL_ADC_Start_DMA(&hadc, adc_buff, 9); //Inicia el DMA se le pasa el ADC, la variable donde guardar los datos y el numero de canales
   HAL_ADC_Start_IT(&hadc); //Se inicia la interrupcion de fin de conversion del ADC en el "Set-up"
   HAL_CAN_Start(&hcan);
-  HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
   HAL_TIM_Base_Start_IT(&htim1);
   TIM2->CCR3 = dutyFanNill;
   TIM2->CCR4 = dutyFanNill;
@@ -529,8 +522,7 @@ int main(void)
 	TxHeader_emergency.StdId = EMERGENCY_ID;
 	TxHeader_emergency.TransmitGlobalTime = DISABLE;
 
-	if (HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING)
-			!= HAL_OK) {
+	if (HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING)!= HAL_OK) {
 		Error_Handler();
 
 	}
@@ -568,7 +560,8 @@ int main(void)
 	  }
 	  if(canResetEcuFlag){
 		  canResetEcu();
-	  }else{
+	  }
+	  else{
 		  HAL_GPIO_WritePin(Ecu_Signal_GPIO_Port, Ecu_Signal_Pin, SET);
 	  }
 	  if(pressDataFlag){
