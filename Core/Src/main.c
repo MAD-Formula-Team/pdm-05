@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdbool.h>  // Incluir la librería estándar de booleanos
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -58,6 +57,7 @@ SPI_HandleTypeDef hspi2;
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim14;
 TIM_HandleTypeDef htim16;
 TIM_HandleTypeDef htim17;
 
@@ -77,6 +77,7 @@ static void MX_TIM17_Init(void);
 static void MX_TIM16_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM14_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -111,17 +112,17 @@ uint16_t adcSpiBuffer[3];
 uint16_t txSpiData;
 uint16_t rxSpiData;
 
-int16_t adc1, adc2, adc3, adc4, adc5, adc6, adc7, adc8, adc9, adc10, adc11, adc12;
-uint8_t tempDataFlag, pressDataFlag, fuelDataFlag, rpmDataFlag, battDataFlag;
+uint16_t adc1, adc2, adc3, adc4, adc5, adc6, adc7, adc8, adc9, adc10, adc11, adc12;
+uint8_t tempDataFlag, pressDataFlag, fuelDataFlag, rpmDataFlag, battDataFlag,pwmStartFlag,escReadyFlag;
 int16_t ect, oilTemp, oilPress, fuelPress, battVolt, rpm;
 uint16_t ectTh[4] = {90, 100, 110, 120};
 uint16_t oilTh[4] = {80, 100, 120, 130};
 uint16_t battTh[3] = {1100, 1125, 1150};
 uint16_t dutyFanNill = 48; //es un 4% de duty --> un poco menos de 1ms  time_high = (CCR/AAR)*time_period
 uint16_t dutyPumpNill = 10;
-uint16_t dutyFanEctTh[3] = {30, 40, 50}; //poner de 10 en 10 (no 75 )
+uint16_t dutyFanEctTh[3] = {40, 50, 60}; //poner de 10 en 10 (no 75 )
 uint16_t dutyPumpEctTh[3] = {60, 70, 90};
-uint16_t dutyFanOilTh[3] = {30, 40, 50}; //poner de 10 en 10 (no 75 )
+uint16_t dutyFanOilTh[3] = {10, 20, 30}; //poner de 10 en 10 (no 75 )
 uint16_t dutyPumpOilTh[3] = {60, 70, 90};
 uint8_t battVoltFlagDone[3];
 uint16_t battVoltBuffer[10] = {1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300};
@@ -193,12 +194,23 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		}
 	}
 }
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+	value_adc[0] = (uint16_t) adc_buff[0];	//Los valores pasan de 32 a 16 bits
+	value_adc[1] = (uint16_t) adc_buff[1];
+	value_adc[2] = (uint16_t) adc_buff[2];
+	value_adc[3] = (uint16_t) adc_buff[3];
+	value_adc[4] = (uint16_t) adc_buff[4];
+	value_adc[5] = (uint16_t) adc_buff[5];
+	value_adc[6] = (uint16_t) adc_buff[6];
+	value_adc[7] = (uint16_t) adc_buff[7];
+	value_adc[8] = (uint16_t) adc_buff[8];
+}
 void tempActions(){
 	tempDataFlag = 0;
-	if(ect > ectTh[0]){
-		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
-		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
-		HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, SET);
+	if((ect > ectTh[0])&&(escReadyFlag)){
+//		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
+//		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
+//		HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, SET);
 		TIM2->CCR3 = dutyFanEctTh[0];
 		TIM2->CCR4 = dutyFanEctTh[0];
 		TIM16->CCR1 = dutyPumpEctTh[0];
@@ -219,17 +231,17 @@ void tempActions(){
 			}
 		}
 	}else{
-		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, RESET);
-		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, RESET);
-		HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, RESET);
+//		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, RESET);
+//		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, RESET);
+//		HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, RESET);
 		TIM2->CCR3 = dutyFanNill;
 		TIM2->CCR4 = dutyFanNill;
 		TIM16->CCR1 = dutyPumpNill;
 	}
-	if(oilTemp > oilTh[0]){
-		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, SET);
-		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, SET);
-		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
+	if((oilTemp > oilTh[0])&&(escReadyFlag)){
+//		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, SET);
+//		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, SET);
+//		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
 		TIM3->CCR1 = dutyFanEctTh[0];
 		TIM3->CCR2 = dutyFanEctTh[0];
 		TIM17->CCR1 = dutyPumpOilTh[0];
@@ -250,9 +262,9 @@ void tempActions(){
 			}
 		}
 	}else{
-		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, RESET);
-		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, RESET);
-		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, RESET);
+//		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, RESET);
+//		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, RESET);
+//		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, RESET);
 		TIM3->CCR1 = dutyFanNill;
 		TIM3->CCR2 = dutyFanNill;
 		TIM17->CCR1 = dutyPumpNill;
@@ -308,18 +320,18 @@ void heartbeat(){
 
 }
 void mapeoADC(){
-	adc1 = ((value_adc[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.132); // ALTERNATOR
-	adc2 = ((value_adc[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // WPL
-	adc3 = ((value_adc[2] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // WPR
-	adc4 = ((value_adc[3] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F1R
-	adc5 = ((value_adc[4] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F2R
-	adc6 = ((value_adc[5] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F1L
-	adc7 = ((value_adc[6] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // F2L
-	adc8 = ((value_adc[7] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // 12VNP
-	adc9 = ((value_adc[8] * (3.3 / 4095) - 0.2) * (1000 / 10) * 1000); // calibración del sensor 0.01V/ºC
-	adc10 = ((adcSpiBuffer[0] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); //Injection
-	adc11 = ((adcSpiBuffer[1] * (3.3 / 4095)) - 0.26) * (1000 / 0.264); // Fuel Pump
-	adc12 = ((adcSpiBuffer[2] * (3.3 / 4095)) - 0.27) * (1000 / 0.088); // Ignition
+	adc1 = ((value_adc[0] * (3300 / 4095)) - 330) * (1 /132)*1000; // ALTERNATOR la trasnformacion ya en mv y de momento, resultado en A
+	adc2 = ((value_adc[1] * (3300 / 4095)) - 330) * (1 /264)*1000;; // WPL
+	adc3 = ((value_adc[2] * (3300 / 4095)) - 330) * (1 / 264)*1000;; // WPR
+	adc4 = ((value_adc[3] * (3300 / 4095)) - 330) * (1 / 264)*1000;; // F1R
+	adc5 = ((value_adc[4] * (3300 / 4095)) - 330) * (1 / 264)*1000;; // F2R
+	adc6 = ((value_adc[5] * (3300 / 4095)) - 260) * (1 / 264)*1000;; // F1L
+	adc7 = ((value_adc[6] * (3300 / 4095)) - 260) * (1 / 264)*1000;; // F2L
+	adc8 = ((value_adc[7] * (3300 / 4095)) - 260) * (10 / 88)*1000;; // 12VNP
+	adc9 = ((value_adc[8] * (3300 / 4095) - 500) * (1 / 10))*1000;; // calibración del sensor 0.01V/ºC
+	adc10 = ((adcSpiBuffer[0] * (3303 / 4095)) - 260) * (1 / 264); //Injection
+	adc11 = ((adcSpiBuffer[1] * (3300 / 4095)) - 260) * (1 /264)*1000;; // Fuel Pump
+	adc12 = ((adcSpiBuffer[2] * (3300 / 4095)) - 270) * (1 / 264)*1000;; // Ignition
 }
 void battControl(){
 	battDataFlag = 0;
@@ -460,12 +472,14 @@ int main(void)
   MX_TIM16_Init();
   MX_TIM2_Init();
   MX_TIM1_Init();
+  MX_TIM14_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADC_Start_DMA(&hadc, adc_buff, 9); //Inicia el DMA se le pasa el ADC, la variable donde guardar los datos y el numero de canales
   HAL_ADC_Start_IT(&hadc); //Se inicia la interrupcion de fin de conversion del ADC en el "Set-up"
   HAL_CAN_Start(&hcan);
   HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
   HAL_TIM_Base_Start_IT(&htim1);
+  HAL_TIM_Base_Start_IT(&htim14);
   TIM2->CCR3 = dutyFanNill;
   TIM2->CCR4 = dutyFanNill;
   TIM3->CCR1 = dutyFanNill;
@@ -539,9 +553,18 @@ int main(void)
 	translateDuty(dutyFanEctTh, 3);
 	translateDuty(dutyFanOilTh, 3);
 	V12NpOn();
-
-
-
+	HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
+	HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
+	HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, SET);
+	HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, SET);
+	HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, SET);
+	HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
+	TIM2->CCR3 = dutyFanNill;
+	TIM2->CCR4 = dutyFanNill;
+	TIM16->CCR1 = dutyPumpNill;
+	TIM3->CCR1 = dutyFanNill;
+	TIM3->CCR2 = dutyFanNill;
+	TIM17->CCR1 = dutyPumpNill;
 
   /* USER CODE END 2 */
 
@@ -1020,6 +1043,51 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief TIM14 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM14_Init(void)
+{
+
+  /* USER CODE BEGIN TIM14_Init 0 */
+
+  /* USER CODE END TIM14_Init 0 */
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM14_Init 1 */
+
+  /* USER CODE END TIM14_Init 1 */
+  htim14.Instance = TIM14;
+  htim14.Init.Prescaler = 2000;
+  htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim14.Init.Period = 48000;
+  htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_Init(&htim14) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim14, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM14_Init 2 */
+
+  /* USER CODE END TIM14_Init 2 */
+
+}
+
+/**
   * @brief TIM16 Initialization Function
   * @param None
   * @retval None
@@ -1222,19 +1290,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 			resetCounter = resetCounter+1;
 		}
 	}
+	if (htim->Instance == TIM14) {
+			pwmStartFlag = 1;
+			escReadyFlag = 1;
+		}
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
-	value_adc[0] = (uint16_t) adc_buff[0];	//Los valores pasan de 32 a 16 bits
-	value_adc[1] = (uint16_t) adc_buff[1];
-	value_adc[2] = (uint16_t) adc_buff[2];
-	value_adc[3] = (uint16_t) adc_buff[3];
-	value_adc[4] = (uint16_t) adc_buff[4];
-	value_adc[5] = (uint16_t) adc_buff[5];
-	value_adc[6] = (uint16_t) adc_buff[6];
-	value_adc[7] = (uint16_t) adc_buff[7];
-	value_adc[8] = (uint16_t) adc_buff[8];
-}
+
 /* USER CODE END 4 */
 
 /**
