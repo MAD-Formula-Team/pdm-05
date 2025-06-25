@@ -115,11 +115,11 @@ uint16_t rxSpiData;
 uint16_t adc1, adc2, adc3, adc4, adc5, adc6, adc7, adc8, adc9, adc10, adc11, adc12;
 uint8_t tempDataFlag, pressDataFlag, fuelDataFlag, rpmDataFlag, battDataFlag,pwmStartFlag,escReadyFlag;
 int16_t ect, oilTemp, oilPress, fuelPress, battVolt, rpm;
-uint16_t ectTh[4] = {90, 100, 110, 120};
-uint16_t oilTh[4] = {80, 100, 120, 130};
-uint16_t battTh[3] = {1100, 1125, 1150};
-uint16_t dutyFanNill = 48; //es un 4% de duty --> un poco menos de 1ms  time_high = (CCR/AAR)*time_period
-uint16_t dutyPumpNill = 10;
+uint16_t ectTh[4] = {60, 90, 100, 110};// rangos a partir de los cuales cambia el duty
+uint16_t oilTh[4] = {80, 100, 120, 130};// rangos a partir de los cuales cambia el duty
+uint16_t battTh[3] = {1100, 1125, 1150};// rangos a partir de los cuales cambia el duty
+uint16_t dutyFanNill = 48; //es un 4% de duty --> un poco menos de 1ms  time_high = (CCR/AAR)*time_period (f = 50Hz)
+uint16_t dutyPumpNill = 10;//duty de la bomba sin funcionar (mirar datasheet) (f = 150hz)
 uint16_t dutyFanEctTh[3] = {40, 50, 60}; //poner de 10 en 10 (no 75 )
 uint16_t dutyPumpEctTh[3] = {60, 70, 90};
 uint16_t dutyFanOilTh[3] = {10, 20, 30}; //poner de 10 en 10 (no 75 )
@@ -208,40 +208,37 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 void tempActions(){
 	tempDataFlag = 0;
 	if((ect > ectTh[0])&&(escReadyFlag)){
-//		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
-//		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
-//		HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, SET);
-		TIM2->CCR3 = dutyFanEctTh[0];
-		TIM2->CCR4 = dutyFanEctTh[0];
+		//TIM2->CCR3 = dutyFanEctTh[0];// estos dos están apagados para que solo la bomba se encienda en el primer EctTh
+		//TIM2->CCR4 = dutyFanEctTh[0];
 		TIM16->CCR1 = dutyPumpEctTh[0];
 
-		if(ect > ectTh[1]){
-			TIM2->CCR3 = dutyFanEctTh[1];
-			TIM2->CCR4 = dutyFanEctTh[1];
+		if(ect >= ectTh[1]){
+			TIM2->CCR3 = dutyFanEctTh[0];
+			TIM2->CCR4 = dutyFanEctTh[0];
 			TIM16->CCR1 = dutyPumpEctTh[1];
 
 			if(ect > ectTh[2]){
-				TIM2->CCR3 = dutyFanEctTh[2];
-				TIM2->CCR4 = dutyFanEctTh[2];
-				TIM16->CCR1 = dutyPumpEctTh[2];
+				TIM2->CCR3 = dutyFanEctTh[1];
+				TIM2->CCR4 = dutyFanEctTh[1];
+				TIM16->CCR1 = dutyPumpEctTh[1];
 
 				if(ect > ectTh[3]){
 					ectEmergencyFlag = 1;
+					TIM2->CCR3 = dutyFanEctTh[2];
+					TIM2->CCR4 = dutyFanEctTh[2];
+					TIM16->CCR1 = dutyPumpEctTh[2];
 				}
 			}
+		}else{
+			TIM2->CCR3 = dutyFanNill;//para que se apaguen a 90
+			TIM2->CCR4 = dutyFanNill;
 		}
 	}else{
-//		HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, RESET);
-//		HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, RESET);
-//		HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, RESET);
-		TIM2->CCR3 = dutyFanNill;
+		TIM2->CCR3 = dutyFanNill;//Si no entra a esta condición que mande pwms de apagado
 		TIM2->CCR4 = dutyFanNill;
 		TIM16->CCR1 = dutyPumpNill;
 	}
 	if((oilTemp > oilTh[0])&&(escReadyFlag)){
-//		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, SET);
-//		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, SET);
-//		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
 		TIM3->CCR1 = dutyFanEctTh[0];
 		TIM3->CCR2 = dutyFanEctTh[0];
 		TIM17->CCR1 = dutyPumpOilTh[0];
@@ -262,9 +259,6 @@ void tempActions(){
 			}
 		}
 	}else{
-//		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, RESET);
-//		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, RESET);
-//		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, RESET);
 		TIM3->CCR1 = dutyFanNill;
 		TIM3->CCR2 = dutyFanNill;
 		TIM17->CCR1 = dutyPumpNill;
@@ -1060,7 +1054,7 @@ static void MX_TIM14_Init(void)
 
   /* USER CODE END TIM14_Init 1 */
   htim14.Instance = TIM14;
-  htim14.Init.Prescaler = 2000;
+  htim14.Init.Prescaler = 4000; // ponerlo para 2/4 segundos
   htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim14.Init.Period = 48000;
   htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
