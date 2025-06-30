@@ -506,10 +506,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
  80003e6:	801a      	strh	r2, [r3, #0]
 
 	}
-	if (RxHeader.StdId == 0x092){
+	if (RxHeader.StdId == 0x093){
  80003e8:	4b08      	ldr	r3, [pc, #32]	@ (800040c <HAL_CAN_RxFifo0MsgPendingCallback+0x180>)
  80003ea:	681b      	ldr	r3, [r3, #0]
- 80003ec:	2b92      	cmp	r3, #146	@ 0x92
+ 80003ec:	2b93      	cmp	r3, #147	@ 0x93
  80003ee:	d106      	bne.n	80003fe <HAL_CAN_RxFifo0MsgPendingCallback+0x172>
 		if (RxData[0] == 0x02)	{
  80003f0:	4b05      	ldr	r3, [pc, #20]	@ (8000408 <HAL_CAN_RxFifo0MsgPendingCallback+0x17c>)
@@ -785,9 +785,6 @@ void tempActions(){
  80005c6:	781b      	ldrb	r3, [r3, #0]
  80005c8:	2b00      	cmp	r3, #0
  80005ca:	d03f      	beq.n	800064c <tempActions+0x184>
-//		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, SET);
-//		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, SET);
-//		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
 		TIM3->CCR1 = dutyFanEctTh[0];
  80005cc:	4b2e      	ldr	r3, [pc, #184]	@ (8000688 <tempActions+0x1c0>)
  80005ce:	881a      	ldrh	r2, [r3, #0]
@@ -869,11 +866,10 @@ void tempActions(){
  8000648:	701a      	strb	r2, [r3, #0]
 		if(oilTemp > oilTh[1]){
  800064a:	e00c      	b.n	8000666 <tempActions+0x19e>
+				}
+			}
 		}
 	}else{
-//		HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, RESET);
-//		HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, RESET);
-//		HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, RESET);
 		TIM3->CCR1 = dutyFanNill;
  800064c:	4b10      	ldr	r3, [pc, #64]	@ (8000690 <tempActions+0x1c8>)
  800064e:	881a      	ldrh	r2, [r3, #0]
@@ -3622,7 +3618,7 @@ static void MX_TIM14_Init(void)
  80017b0:	4b1e      	ldr	r3, [pc, #120]	@ (800182c <MX_TIM14_Init+0x90>)
  80017b2:	4a1f      	ldr	r2, [pc, #124]	@ (8001830 <MX_TIM14_Init+0x94>)
  80017b4:	601a      	str	r2, [r3, #0]
-  htim14.Init.Prescaler = 4000;
+  htim14.Init.Prescaler = 4000; // ponerlo para 2/4 segundos
  80017b6:	4b1d      	ldr	r3, [pc, #116]	@ (800182c <MX_TIM14_Init+0x90>)
  80017b8:	22fa      	movs	r2, #250	@ 0xfa
  80017ba:	0112      	lsls	r2, r2, #4

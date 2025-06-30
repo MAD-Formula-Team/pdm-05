@@ -188,7 +188,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 			battVolt = (RxData[1] << 8) | RxData[0];
 
 	}
-	if (RxHeader.StdId == 0x092){
+	if (RxHeader.StdId == 0x093){
 		if (RxData[0] == 0x02)	{
 			canResetEcuFlag = 1;
 		}
