@@ -547,11 +547,17 @@ int main(void)
 	translateDuty(dutyFanEctTh, 3);
 	translateDuty(dutyFanOilTh, 3);
 	V12NpOn();
+	HAL_Delay(10);
 	HAL_GPIO_WritePin(WPL_Signal_GPIO_Port, WPL_Signal_Pin, SET);
+	HAL_Delay(10);
 	HAL_GPIO_WritePin(F1L_Signal_GPIO_Port, F1L_Signal_Pin, SET);
+	HAL_Delay(10);
 	HAL_GPIO_WritePin(F2L_Signal_GPIO_Port, F2L_Signal_Pin, SET);
+	HAL_Delay(10);
 	HAL_GPIO_WritePin(WPR_Signal_GPIO_Port, WPR_Signal_Pin, SET);
+	HAL_Delay(10);
 	HAL_GPIO_WritePin(F1R_Signal_GPIO_Port, F1R_Signal_Pin, SET);
+	HAL_Delay(10);
 	HAL_GPIO_WritePin(F2R_Signal_GPIO_Port, F2R_Signal_Pin, SET);
 	TIM2->CCR3 = dutyFanNill;
 	TIM2->CCR4 = dutyFanNill;
