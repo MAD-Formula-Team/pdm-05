@@ -115,12 +115,12 @@ uint16_t rxSpiData;
 uint16_t adc1, adc2, adc3, adc4, adc5, adc6, adc7, adc8, adc9, adc10, adc11, adc12;
 uint8_t tempDataFlag, pressDataFlag, fuelDataFlag, rpmDataFlag, battDataFlag,pwmStartFlag,escReadyFlag;
 int16_t ect, oilTemp, oilPress, fuelPress, battVolt, rpm;
-uint16_t ectTh[4] = {60, 90, 100, 110};// rangos a partir de los cuales cambia el duty
-uint16_t oilTh[4] = {80, 100, 120, 130};// rangos a partir de los cuales cambia el duty
-uint16_t battTh[3] = {1100, 1125, 1150};// rangos a partir de los cuales cambia el duty
+uint16_t ectTh[4] = {60, 90, 96, 105};// rangos a partir de los cuales cambia el duty
+uint16_t oilTh[4] = {80, 100, 115, 130};// rangos a partir de los cuales cambia el duty
+uint16_t battTh[3] = {1050, 1080, 1120};// rangos a partir de los cuales cambia el duty
 uint16_t dutyFanNill = 48; //es un 4% de duty --> un poco menos de 1ms  time_high = (CCR/AAR)*time_period (f = 50Hz)
 uint16_t dutyPumpNill = 10;//duty de la bomba sin funcionar (mirar datasheet) (f = 150hz)
-uint16_t dutyFanEctTh[3] = {40, 50, 60}; //poner de 10 en 10 (no 75 )
+uint16_t dutyFanEctTh[3] = {40, 50, 50}; //poner de 10 en 10 (no 75 )
 uint16_t dutyPumpEctTh[3] = {60, 70, 90};
 uint16_t dutyFanOilTh[3] = {10, 20, 30}; //poner de 10 en 10 (no 75 )
 uint16_t dutyPumpOilTh[3] = {60, 70, 90};
