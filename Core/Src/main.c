@@ -115,17 +115,17 @@ uint16_t rxSpiData;
 uint16_t adc1, adc2, adc3, adc4, adc5, adc6, adc7, adc8, adc9, adc10, adc11, adc12;
 uint8_t tempDataFlag, pressDataFlag, fuelDataFlag, rpmDataFlag, battDataFlag,pwmStartFlag,escReadyFlag;
 int16_t ect, oilTemp, oilPress, fuelPress, battVolt, rpm;
-uint16_t ectTh[4] = {60, 90, 96, 105};// rangos a partir de los cuales cambia el duty
+uint16_t ectTh[4] = {60, 75, 83, 95};// rangos a partir de los cuales cambia el duty
 uint16_t oilTh[4] = {80, 100, 115, 130};// rangos a partir de los cuales cambia el duty
-uint16_t battTh[3] = {1050, 1080, 1120};// rangos a partir de los cuales cambia el duty
+uint16_t battTh[3] = {1025, 1030, 1050};// rangos a partir de los cuales cambia el duty
 uint16_t dutyFanNill = 48; //es un 4% de duty --> un poco menos de 1ms  time_high = (CCR/AAR)*time_period (f = 50Hz)
 uint16_t dutyPumpNill = 10;//duty de la bomba sin funcionar (mirar datasheet) (f = 150hz)
-uint16_t dutyFanEctTh[3] = {40, 50, 60}; //poner de 10 en 10 (no 75 )
+uint16_t dutyFanEctTh[3] = {10, 30, 40}; //poner de 10 en 10 (no 75 )
 uint16_t dutyPumpEctTh[3] = {60, 70, 90};
 uint16_t dutyFanOilTh[3] = {10, 20, 30}; //poner de 10 en 10 (no 75 )
 uint16_t dutyPumpOilTh[3] = {60, 70, 90};
 uint8_t battVoltFlagDone[3];
-uint16_t battVoltBuffer[10] = {1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300};
+uint16_t battVoltBuffer[15] = {1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300, 1300};
 uint16_t fuelPumpCurrentBuffer[100];
 uint16_t fuelPressBuffer[100];
 uint16_t battVoltAverage, fuelPumpCurrentAverage, instFuelConsumption, fuelPressAverage;
@@ -210,47 +210,63 @@ void tempActions(){
 	if((ect > ectTh[0])&&(escReadyFlag)){
 		//TIM2->CCR3 = dutyFanEctTh[0];// estos dos están apagados para que solo la bomba se encienda en el primer EctTh
 		//TIM2->CCR4 = dutyFanEctTh[0];
+		//TIM3->CCR2 = dutyFanEctTh[0];
 		TIM16->CCR1 = dutyPumpEctTh[0];
 
 		if(ect >= ectTh[1]){
 			TIM2->CCR3 = dutyFanEctTh[0];
 			TIM2->CCR4 = dutyFanEctTh[0];
+
+			TIM3->CCR2 = dutyFanEctTh[0];
+
 			TIM16->CCR1 = dutyPumpEctTh[1];
 
 			if(ect > ectTh[2]){
 				TIM2->CCR3 = dutyFanEctTh[1];
 				TIM2->CCR4 = dutyFanEctTh[1];
+
+				TIM3->CCR2 = dutyFanEctTh[1];
+
 				TIM16->CCR1 = dutyPumpEctTh[1];
 
 				if(ect > ectTh[3]){
 					ectEmergencyFlag = 1;
 					TIM2->CCR3 = dutyFanEctTh[2];
 					TIM2->CCR4 = dutyFanEctTh[2];
+
+					TIM3->CCR2 = dutyFanEctTh[2];
+
 					TIM16->CCR1 = dutyPumpEctTh[2];
 				}
 			}
 		}else{
 			TIM2->CCR3 = dutyFanNill;//para que se apaguen a 90
 			TIM2->CCR4 = dutyFanNill;
+
+			TIM3->CCR2 = dutyFanNill;
 		}
 	}else{
 		TIM2->CCR3 = dutyFanNill;//Si no entra a esta condición que mande pwms de apagado
 		TIM2->CCR4 = dutyFanNill;
+
+		TIM3->CCR2 = dutyFanNill;
+
 		TIM16->CCR1 = dutyPumpNill;
 	}
 	if((oilTemp > oilTh[0])&&(escReadyFlag)){
 		TIM3->CCR1 = dutyFanEctTh[0];
-		TIM3->CCR2 = dutyFanEctTh[0];
+
 		TIM17->CCR1 = dutyPumpOilTh[0];
+
 
 		if(oilTemp > oilTh[1]){
 			TIM3->CCR1 = dutyFanEctTh[1];
-			TIM3->CCR2 = dutyFanEctTh[1];
+
 			TIM17->CCR1 = dutyPumpOilTh[1];
 
 			if(oilTemp > oilTh[2]){
 				TIM3->CCR1 = dutyFanEctTh[2];
-				TIM3->CCR2 = dutyFanEctTh[2];
+
 				TIM17->CCR1 = dutyPumpOilTh[2];
 
 				if(oilTemp > oilTh[3]){
@@ -260,7 +276,7 @@ void tempActions(){
 		}
 	}else{
 		TIM3->CCR1 = dutyFanNill;
-		TIM3->CCR2 = dutyFanNill;
+
 		TIM17->CCR1 = dutyPumpNill;
 	}
 }

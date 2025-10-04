@@ -60,8 +60,8 @@ all: main-build
 main-build: pdm-05.elf secondary-outputs
 
 # Tool invocations
-pdm-05.elf pdm-05.map: $(OBJS) $(USER_OBJS) C:\Users\marco\STM32CubeIDE\workspace_1.13.22\pdm-05\STM32F042C6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "pdm-05.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"C:\Users\marco\STM32CubeIDE\workspace_1.13.22\pdm-05\STM32F042C6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="pdm-05.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+pdm-05.elf pdm-05.map: $(OBJS) $(USER_OBJS) C:\Users\27and\Documents\GITHUB\pdm-05\STM32F042C6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "pdm-05.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"C:\Users\27and\Documents\GITHUB\pdm-05\STM32F042C6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="pdm-05.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
